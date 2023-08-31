@@ -3,8 +3,15 @@
 
 .DS_Store
 
+# data
+tmp/*
+pb_data/*
+
 # goreleaser builds folder
 /.builds/
+
+# ui builds folder
+/ui/dist/*
 
 # tests coverage
 coverage.out
