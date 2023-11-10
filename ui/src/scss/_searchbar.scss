@@ -5,7 +5,8 @@
     display: flex;
     align-items: center;
     width: 100%;
-    min-height: var(--searchHeight);
+    /* min-height: var(--searchHeight); */
+    /* flex-grow: 1; */
     padding: 5px 7px;
     margin: 0;
     white-space: nowrap;
@@ -15,6 +16,10 @@
     transition: color var(--baseAnimationSpeed),
                 background var(--baseAnimationSpeed),
                 box-shadow var(--baseAnimationSpeed);
+
+    min-height: 0px;
+    padding-block: 4px;
+
     & > :first-child {
         border-top-left-radius: var(--btnHeight);
         border-bottom-left-radius: var(--btnHeight);

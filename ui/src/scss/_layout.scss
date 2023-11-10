@@ -58,6 +58,7 @@
     flex-direction: column;
     align-items: center;
     width: var(--appSidebarWidth);
+    width: 65px;
     padding: var(--smSpacing) 0px var(--smSpacing);
     background: var(--baseColor);
     border-right: 1px solid var(--baseAlt2Color);
@@ -237,7 +238,7 @@
     width: 100%;
     min-height: var(--btnHeight);
     gap: var(--xsSpacing);
-    margin: 0 0 var(--baseSpacing);
+    /* margin: 0 0 var(--baseSpacing); */
     .btns-group {
         margin-left: auto;
         justify-content: end;
@@ -272,6 +273,7 @@
     color: var(--txtDisabledColor);
     .breadcrumb-item {
         @extend h2;
+        font-size: 18px;
         position: relative;
         margin: 0;
         line-height: 1;
@@ -310,7 +312,13 @@
     display: block;
     width: 100%;
     flex-grow: 1;
-    padding: calc(var(--baseSpacing) - 5px) var(--baseSpacing) var(--smSpacing);
+    padding: calc(var(--baseSpacing) - 5px) var(--baseSpacing) var(--smSpacing); /* new from base pb */
+    padding: calc(var(--baseSpacing) - 5px) var(--baseSpacing);
+    display: flex;
+    flex-direction: column;
+    gap: 20px 0;
+    padding-top: 15px;
+    padding-bottom: 10px;
 }
 
 .page-footer {

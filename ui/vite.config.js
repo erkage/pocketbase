@@ -1,5 +1,14 @@
 import { defineConfig }           from 'vite';
 import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import fs from 'fs/promises';
+
+const updateAirFile = () => ({
+  name: "update-air-file",
+  apply: "build",
+  writeBundle: async () => {
+    await fs.writeFile("../.air.update", new Date().toLocaleString("SWE"));
+  },
+});
 
 // see https://vitejs.dev/config
 export default defineConfig({
@@ -22,6 +31,7 @@ export default defineConfig({
                 handler(warning);
             },
         }),
+        updateAirFile()
     ],
     resolve: {
         alias: {

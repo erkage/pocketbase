@@ -38,6 +38,8 @@ button {
     border-radius: var(--btnRadius);
     background: none;
     transition: color var(--baseAnimationSpeed);
+    font-size: 13px;
+    padding: 5px 12px;
     i {
         font-size: 1.1428em;
         vertical-align: middle;
@@ -202,7 +204,7 @@ button {
 
     // sizes
     &.btn-expanded {
-        min-width: 150px;
+        min-width: 125px;
     }
     &.btn-expanded-sm {
         min-width: 90px;
@@ -552,7 +554,7 @@ select {
             margin-right: -5px;
         }
         &:not(.prefix) ~ %input {
-            padding-right: 45px;
+            padding-right: 30px;
         }
         &.prefix {
             right: auto;

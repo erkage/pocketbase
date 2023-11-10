@@ -51,17 +51,17 @@
         <input
             type="password"
             autocomplete="new-password"
-            minlength="10"
+            minlength="3"
             id={uniqueId}
             bind:value={password}
             required
         />
-        <div class="help-block">Minimum 10 characters.</div>
+        <div class="help-block">Minimum 3 characters.</div>
     </Field>
 
     <Field class="form-field required" name="passwordConfirm" let:uniqueId>
         <label for={uniqueId}>Password confirm</label>
-        <input type="password" minlength="10" id={uniqueId} bind:value={passwordConfirm} required />
+        <input type="password" minlength="3" id={uniqueId} bind:value={passwordConfirm} required />
     </Field>
 
     <button

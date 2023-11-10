@@ -4,6 +4,8 @@ table {
     border-collapse: separate;
     min-width: 100%;
     transition: opacity var(--baseAnimationSpeed);
+    font-size: 13px;
+
     .form-field {
         margin: 0;
         line-height: 1;
@@ -16,20 +18,28 @@ table {
         text-align: left;
         padding: 10px;
         border-bottom: 1px solid var(--baseAlt2Color);
-        &:first-child {
+        border-right: 1px solid #d9dbde;
+        /* &:first-child {
             padding-left: 20px;
         }
         &:last-child {
             padding-right: 20px;
-        }
+        } */
     }
     th {
         color: var(--txtHintColor);
-        font-weight: 600;
-        font-size: 1rem;
+        color: #062e47;
+        font-size: 13px;
         user-select: none;
-        height: 50px;
+        height: 35px;
         line-height: var(--smLineHeight);
+        background-color: #f5f5f5;
+        padding-block: 5px;
+
+        .btn.btn-sm {
+            min-height: 20px;
+        }
+
         i {
             font-size: inherit;
         }
@@ -37,6 +47,10 @@ table {
     td {
         height: 60px;
         word-break: break-word;
+        height: 38px;
+        /* line-height: 38px; */
+        padding: 4px 10px;
+        border-right: 1px solid #eee;
     }
 
     .min-width {
@@ -124,7 +138,7 @@ table {
     .col-type-action {
         @extend %minColWidth;
         white-space: nowrap;
-        text-align: right;
+        text-align: center;
         color: var(--txtHintColor);
         i {
             display: inline-block;
@@ -141,8 +155,22 @@ table {
     .col-type-text {
         max-width: 300px;
     }
+    .col-type-number {
+        text-align: right;
+    }
+    .col-type-bool {
+        text-align: center;
+        .ri-check-fill {
+            color: #37a66b;
+            font-weight: bold;
+            margin-left: -3px;
+        }
+    }
     .col-type-editor {
-        min-width: 300px;
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .col-type-select {
         min-width: 150px;
@@ -152,9 +180,25 @@ table {
         white-space: nowrap;
     }
     .col-type-file {
-        min-width: 100px;
+        min-width: 150px;
+        .flex {
+            gap: 10px;
+            max-width: 110px;
+            overflow: hidden;
+            overflow-x: scroll;
+            padding-right: 10px;
+            scrollbar-width: none;
+
+            &::-webkit-scrollbar {
+                display: none;
+            }
+        }
     }
-    .col-type-number {
+
+    // field name specific columns
+    td.col-field-id,
+    td.col-field-username {
+        width: 0;
         white-space: nowrap;
     }
 
@@ -171,7 +215,7 @@ table {
 
     tr {
         outline: 0;
-        background: var(--bodyColor);
+        background: var(--baseColor);
         transition: background var(--baseAnimationSpeed);
     }
     tr.row-handle {
@@ -255,32 +299,18 @@ table {
     max-width: calc(100% + 2*var(--baseSpacing));
     margin-left: calc(var(--baseSpacing) * -1);
     margin-right: calc(var(--baseSpacing) * -1);
-    border-bottom: 1px solid var(--baseAlt2Color);
-    .bulk-select-col {
+    height: 100%;
+    /* .bulk-select-col {
         min-width: 70px;
-    }
+    } */
     td, th {
         position: relative;
-        &:first-child {
+        /* &:first-child {
             padding-left: calc(var(--baseSpacing) + 3px);
-        }
-        &:last-child {
+        } */
+        /* &:last-child {
             padding-right: calc(var(--baseSpacing) + 3px);
-        }
-    }
-    thead {
-        position: sticky;
-        top: 0;
-        z-index: 100;
-        transition: box-shadow var(--baseAnimationSpeed);
-    }
-    tbody {
-        position: relative;
-        z-index: 0;
-        tr:last-child td,
-        tr:last-child th {
-            border-bottom: 0;
-        }
+        } */
     }
 
     // horizontal scrolling
@@ -302,7 +332,7 @@ table {
     }
     th.bulk-select-col,
     th.col-type-action {
-        background: var(--bodyColor);
+        background: #f5f5f5;
     }
 
     // scrolling styles

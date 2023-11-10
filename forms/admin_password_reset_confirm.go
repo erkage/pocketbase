@@ -42,7 +42,7 @@ func (form *AdminPasswordResetConfirm) SetDao(dao *daos.Dao) {
 func (form *AdminPasswordResetConfirm) Validate() error {
 	return validation.ValidateStruct(form,
 		validation.Field(&form.Token, validation.Required, validation.By(form.checkToken)),
-		validation.Field(&form.Password, validation.Required, validation.Length(10, 72)),
+		validation.Field(&form.Password, validation.Required, validation.Length(3, 72)),
 		validation.Field(&form.PasswordConfirm, validation.Required, validation.By(validators.Compare(form.Password))),
 	)
 }

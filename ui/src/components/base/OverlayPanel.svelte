@@ -39,7 +39,7 @@
     export { classes as class }; // export reserved keyword
 
     export let active = false;
-    export let popup = false;
+    export let popup = true;
     export let overlayClose = true;
     export let btnClose = true;
     export let escClose = true;

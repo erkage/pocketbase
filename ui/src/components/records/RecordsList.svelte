@@ -82,6 +82,7 @@
         fields.map((f) => {
             return { id: f.id, name: f.name };
         }),
+        [{id: "@id", name: "id"}],
         hasCreated ? { id: "@created", name: "created" } : [],
         hasUpdated ? { id: "@updated", name: "updated" } : []
     );
@@ -605,3 +606,11 @@
         </button>
     </div>
 {/if}
+
+<style>
+    .records-length {
+        position: absolute;
+        bottom: 15px;
+        right: calc(var(--baseSpacing) * -1);
+    }
+</style>

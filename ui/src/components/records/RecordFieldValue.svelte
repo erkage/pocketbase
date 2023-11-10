@@ -31,7 +31,9 @@
 {:else if CommonHelper.isEmpty(rawValue)}
     <span class="txt-hint">N/A</span>
 {:else if field.type === "bool"}
-    <span class="txt">{rawValue ? "True" : "False"}</span>
+    {#if rawValue}
+        <i class="ri-check-fill"></i>
+    {/if}
 {:else if field.type === "number"}
     <span class="txt">{rawValue}</span>
 {:else if field.type === "url"}
@@ -74,7 +76,7 @@
 {:else if field.type === "date"}
     <FormattedDate date={rawValue} />
 {:else if field.type === "select"}
-    <div class="inline-flex">
+    <div class="flex">
         {#each CommonHelper.toArray(rawValue) as item, i (i + item)}
             <span class="label">{item}</span>
         {/each}
@@ -104,7 +106,7 @@
     {@const filesLimit = short ? 10 : 500}
     <div class="inline-flex" class:multiple={field.options?.maxSelect != 1}>
         {#each files.slice(0, filesLimit) as filename, i (i + filename)}
-            <RecordFileThumb {record} {filename} size="sm" />
+            <RecordFileThumb {record} {filename} size="xs" />
         {/each}
         {#if files.length > filesLimit}
             ...

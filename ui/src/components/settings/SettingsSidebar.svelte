@@ -40,6 +40,14 @@
         </a>
 
         <div class="sidebar-title">
+            <span class="txt">Appearance</span>
+        </div>
+        <a href="/settings/appearance-collections" class="sidebar-list-item" use:active={{ path: "/settings/appearance/?.*" }} use:link>
+            <i class="ri-database-2-line" />
+            <span class="txt">Collections</span>
+        </a>
+
+        <div class="sidebar-title">
             <span class="txt">Sync</span>
         </div>
         <a
