@@ -2,6 +2,7 @@ package forms
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -69,7 +70,7 @@ func (form *RecordPasswordResetRequest) Submit(interceptors ...InterceptorFunc[*
 
 	authRecord, err := form.dao.FindAuthRecordByEmail(form.collection.Id, form.Email)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to fetch %s record with email %s: %w", form.collection.Id, form.Email, err)
 	}
 
 	now := time.Now().UTC()
@@ -78,13 +79,13 @@ func (form *RecordPasswordResetRequest) Submit(interceptors ...InterceptorFunc[*
 		return errors.New("You've already requested a password reset.")
 	}
 
-	// update last sent timestamp
-	authRecord.Set(schema.FieldNameLastResetSentAt, types.NowDateTime())
-
 	return runInterceptors(authRecord, func(m *models.Record) error {
 		if err := mails.SendRecordPasswordReset(form.app, m); err != nil {
 			return err
 		}
+
+		// update last sent timestamp
+		m.Set(schema.FieldNameLastResetSentAt, types.NowDateTime())
 
 		return form.dao.SaveRecord(m)
 	}, interceptors...)

@@ -144,8 +144,19 @@ declare function routerPre(...middlewares: Array<string|echo.MiddlewareFunc>): v
  */
 declare var __hooks: string
 
-// skip on* hook methods as they are registered via the global on* method
-type appWithoutHooks = Omit<pocketbase.PocketBase, ` + "`on${string}`" + `>
+// Utility type to exclude the on* hook methods from a type
+// (hooks are separately generated as global methods).
+//
+// See https://www.typescriptlang.org/docs/handbook/2/mapped-types.html#key-remapping-via-as
+type excludeHooks<Type> = {
+    [Property in keyof Type as Exclude<Property, ` + "`on${string}`" + `>]: Type[Property]
+};
+
+// core.App without the on* hook methods
+type CoreApp = excludeHooks<ORIGINAL_CORE_APP>
+
+// pocketbase.PocketBase without the on* hook methods
+type PocketBase = excludeHooks<ORIGINAL_POCKETBASE>
 
 /**
  * ` + "`$app`" + ` is the current running PocketBase instance that is globally
@@ -156,7 +167,7 @@ type appWithoutHooks = Omit<pocketbase.PocketBase, ` + "`on${string}`" + `>
  * @namespace
  * @group PocketBase
  */
-declare var $app: appWithoutHooks
+declare var $app: PocketBase
 
 /**
  * ` + "`$template`" + ` is a global helper to load and cache HTML templates on the fly.
@@ -179,6 +190,24 @@ declare var $app: appWithoutHooks
  * @group PocketBase
  */
 declare var $template: template.Registry
+
+/**
+ * readerToString reads the content of the specified io.Reader until
+ * EOF or maxBytes are reached.
+ *
+ * If maxBytes is not specified it will read up to 32MB.
+ *
+ * Note that after this call the reader can't be used anymore.
+ *
+ * Example:
+ *
+ * ` + "```" + `js
+ * const rawBody = readerToString(c.request().body)
+ * ` + "```" + `
+ *
+ * @group PocketBase
+ */
+declare function readerToString(reader: any, maxBytes?: number): string;
 
 /**
  * arrayOf creates a placeholder array of the specified models.
@@ -421,6 +450,57 @@ declare class Dao implements daos.Dao {
   constructor(concurrentDB?: dbx.Builder, nonconcurrentDB?: dbx.Builder)
 }
 
+interface Cookie extends http.Cookie{} // merge
+/**
+ * A Cookie represents an HTTP cookie as sent in the Set-Cookie header of an
+ * HTTP response.
+ *
+ * Example:
+ *
+ * ` + "```" + `js
+ * routerAdd("POST", "/example", (c) => {
+ *     c.setCookie(new Cookie({
+ *         name:     "example_name",
+ *         value:    "example_value",
+ *         path:     "/",
+ *         domain:   "example.com",
+ *         maxAge:   10,
+ *         secure:   true,
+ *         httpOnly: true,
+ *         sameSite: 3,
+ *     }))
+ *
+ *     return c.redirect(200, "/");
+ * })
+ * ` + "```" + `
+ *
+ * @group PocketBase
+ */
+declare class Cookie implements http.Cookie {
+  constructor(options?: Partial<http.Cookie>)
+}
+
+interface SubscriptionMessage extends subscriptions.Message{} // merge
+/**
+ * SubscriptionMessage defines a realtime subscription payload.
+ *
+ * Example:
+ *
+ * ` + "```" + `js
+ * onRealtimeConnectRequest((e) => {
+ *     e.client.send(new SubscriptionMessage({
+ *         name: "example",
+ *         data: '{"greeting": "Hello world"}'
+ *     }))
+ * })
+ * ` + "```" + `
+ *
+ * @group PocketBase
+ */
+declare class SubscriptionMessage implements subscriptions.Message {
+  constructor(options?: Partial<subscriptions.Message>)
+}
+
 // -------------------------------------------------------------------
 // dbxBinds
 // -------------------------------------------------------------------
@@ -479,6 +559,23 @@ declare namespace $tokens {
 }
 
 // -------------------------------------------------------------------
+// mailsBinds
+// -------------------------------------------------------------------
+
+/**
+ * ` + "`" + `$mails` + "`" + ` defines helpers to send common
+ * admins and auth records emails like verification, password reset, etc.
+ *
+ * @group PocketBase
+ */
+declare namespace $mails {
+  let sendAdminPasswordReset:  mails.sendAdminPasswordReset
+  let sendRecordPasswordReset: mails.sendRecordPasswordReset
+  let sendRecordVerification:  mails.sendRecordVerification
+  let sendRecordChangeEmail:   mails.sendRecordChangeEmail
+}
+
+// -------------------------------------------------------------------
 // securityBinds
 // -------------------------------------------------------------------
 
@@ -498,6 +595,12 @@ declare namespace $security {
   let createJWT:                      security.newJWT
   let encrypt:                        security.encrypt
   let decrypt:                        security.decrypt
+  let hs256:                          security.hs256
+  let hs512:                          security.hs512
+  let equal:                          security.equal
+  let md5:                            security.md5
+  let sha256:                         security.sha256
+  let sha512:                         security.sha512
 }
 
 // -------------------------------------------------------------------
@@ -555,7 +658,26 @@ declare namespace $filepath {
  * @group PocketBase
  */
 declare namespace $os {
-  export let exec:      exec.command
+  /**
+   * Legacy alias for $os.cmd().
+   */
+  export let exec: exec.command
+
+  /**
+   * Prepares an external OS command.
+   *
+   * Example:
+   *
+   * ` + "```" + `js
+   * // prepare the command to execute
+   * const cmd = $os.cmd('ls', '-sl')
+   *
+   * // execute the command and return its standard output as string
+   * const output = String.fromCharCode(...cmd.output());
+   * ` + "```" + `
+   */
+  export let cmd: exec.command
+
   export let args:      os.args
   export let exit:      os.exit
   export let getenv:    os.getenv
@@ -583,7 +705,7 @@ interface AdminLoginForm extends forms.AdminLogin{} // merge
  * @group PocketBase
  */
 declare class AdminLoginForm implements forms.AdminLogin {
-  constructor(app: core.App)
+  constructor(app: CoreApp)
 }
 
 interface AdminPasswordResetConfirmForm extends forms.AdminPasswordResetConfirm{} // merge
@@ -592,7 +714,7 @@ interface AdminPasswordResetConfirmForm extends forms.AdminPasswordResetConfirm{
  * @group PocketBase
  */
 declare class AdminPasswordResetConfirmForm implements forms.AdminPasswordResetConfirm {
-  constructor(app: core.App)
+  constructor(app: CoreApp)
 }
 
 interface AdminPasswordResetRequestForm extends forms.AdminPasswordResetRequest{} // merge
@@ -601,7 +723,7 @@ interface AdminPasswordResetRequestForm extends forms.AdminPasswordResetRequest{
  * @group PocketBase
  */
 declare class AdminPasswordResetRequestForm implements forms.AdminPasswordResetRequest {
-  constructor(app: core.App)
+  constructor(app: CoreApp)
 }
 
 interface AdminUpsertForm extends forms.AdminUpsert{} // merge
@@ -610,7 +732,7 @@ interface AdminUpsertForm extends forms.AdminUpsert{} // merge
  * @group PocketBase
  */
 declare class AdminUpsertForm implements forms.AdminUpsert {
-  constructor(app: core.App, admin: models.Admin)
+  constructor(app: CoreApp, admin: models.Admin)
 }
 
 interface AppleClientSecretCreateForm extends forms.AppleClientSecretCreate{} // merge
@@ -619,7 +741,7 @@ interface AppleClientSecretCreateForm extends forms.AppleClientSecretCreate{} //
  * @group PocketBase
  */
 declare class AppleClientSecretCreateForm implements forms.AppleClientSecretCreate {
-  constructor(app: core.App)
+  constructor(app: CoreApp)
 }
 
 interface CollectionUpsertForm extends forms.CollectionUpsert{} // merge
@@ -628,7 +750,7 @@ interface CollectionUpsertForm extends forms.CollectionUpsert{} // merge
  * @group PocketBase
  */
 declare class CollectionUpsertForm implements forms.CollectionUpsert {
-  constructor(app: core.App, collection: models.Collection)
+  constructor(app: CoreApp, collection: models.Collection)
 }
 
 interface CollectionsImportForm extends forms.CollectionsImport{} // merge
@@ -637,7 +759,7 @@ interface CollectionsImportForm extends forms.CollectionsImport{} // merge
  * @group PocketBase
  */
 declare class CollectionsImportForm implements forms.CollectionsImport {
-  constructor(app: core.App)
+  constructor(app: CoreApp)
 }
 
 interface RealtimeSubscribeForm extends forms.RealtimeSubscribe{} // merge
@@ -653,7 +775,7 @@ interface RecordEmailChangeConfirmForm extends forms.RecordEmailChangeConfirm{} 
  * @group PocketBase
  */
 declare class RecordEmailChangeConfirmForm implements forms.RecordEmailChangeConfirm {
-  constructor(app: core.App, collection: models.Collection)
+  constructor(app: CoreApp, collection: models.Collection)
 }
 
 interface RecordEmailChangeRequestForm extends forms.RecordEmailChangeRequest{} // merge
@@ -662,7 +784,7 @@ interface RecordEmailChangeRequestForm extends forms.RecordEmailChangeRequest{} 
  * @group PocketBase
  */
 declare class RecordEmailChangeRequestForm implements forms.RecordEmailChangeRequest {
-  constructor(app: core.App, record: models.Record)
+  constructor(app: CoreApp, record: models.Record)
 }
 
 interface RecordOAuth2LoginForm extends forms.RecordOAuth2Login{} // merge
@@ -671,7 +793,7 @@ interface RecordOAuth2LoginForm extends forms.RecordOAuth2Login{} // merge
  * @group PocketBase
  */
 declare class RecordOAuth2LoginForm implements forms.RecordOAuth2Login {
-  constructor(app: core.App, collection: models.Collection, optAuthRecord?: models.Record)
+  constructor(app: CoreApp, collection: models.Collection, optAuthRecord?: models.Record)
 }
 
 interface RecordPasswordLoginForm extends forms.RecordPasswordLogin{} // merge
@@ -680,7 +802,7 @@ interface RecordPasswordLoginForm extends forms.RecordPasswordLogin{} // merge
  * @group PocketBase
  */
 declare class RecordPasswordLoginForm implements forms.RecordPasswordLogin {
-  constructor(app: core.App, collection: models.Collection)
+  constructor(app: CoreApp, collection: models.Collection)
 }
 
 interface RecordPasswordResetConfirmForm extends forms.RecordPasswordResetConfirm{} // merge
@@ -689,7 +811,7 @@ interface RecordPasswordResetConfirmForm extends forms.RecordPasswordResetConfir
  * @group PocketBase
  */
 declare class RecordPasswordResetConfirmForm implements forms.RecordPasswordResetConfirm {
-  constructor(app: core.App, collection: models.Collection)
+  constructor(app: CoreApp, collection: models.Collection)
 }
 
 interface RecordPasswordResetRequestForm extends forms.RecordPasswordResetRequest{} // merge
@@ -698,7 +820,7 @@ interface RecordPasswordResetRequestForm extends forms.RecordPasswordResetReques
  * @group PocketBase
  */
 declare class RecordPasswordResetRequestForm implements forms.RecordPasswordResetRequest {
-  constructor(app: core.App, collection: models.Collection)
+  constructor(app: CoreApp, collection: models.Collection)
 }
 
 interface RecordUpsertForm extends forms.RecordUpsert{} // merge
@@ -707,7 +829,7 @@ interface RecordUpsertForm extends forms.RecordUpsert{} // merge
  * @group PocketBase
  */
 declare class RecordUpsertForm implements forms.RecordUpsert {
-  constructor(app: core.App, record: models.Record)
+  constructor(app: CoreApp, record: models.Record)
 }
 
 interface RecordVerificationConfirmForm extends forms.RecordVerificationConfirm{} // merge
@@ -716,7 +838,7 @@ interface RecordVerificationConfirmForm extends forms.RecordVerificationConfirm{
  * @group PocketBase
  */
 declare class RecordVerificationConfirmForm implements forms.RecordVerificationConfirm {
-  constructor(app: core.App, collection: models.Collection)
+  constructor(app: CoreApp, collection: models.Collection)
 }
 
 interface RecordVerificationRequestForm extends forms.RecordVerificationRequest{} // merge
@@ -725,7 +847,7 @@ interface RecordVerificationRequestForm extends forms.RecordVerificationRequest{
  * @group PocketBase
  */
 declare class RecordVerificationRequestForm implements forms.RecordVerificationRequest {
-  constructor(app: core.App, collection: models.Collection)
+  constructor(app: CoreApp, collection: models.Collection)
 }
 
 interface SettingsUpsertForm extends forms.SettingsUpsert{} // merge
@@ -734,7 +856,7 @@ interface SettingsUpsertForm extends forms.SettingsUpsert{} // merge
  * @group PocketBase
  */
 declare class SettingsUpsertForm implements forms.SettingsUpsert {
-  constructor(app: core.App)
+  constructor(app: CoreApp)
 }
 
 interface TestEmailSendForm extends forms.TestEmailSend{} // merge
@@ -743,7 +865,7 @@ interface TestEmailSendForm extends forms.TestEmailSend{} // merge
  * @group PocketBase
  */
 declare class TestEmailSendForm implements forms.TestEmailSend {
-  constructor(app: core.App)
+  constructor(app: CoreApp)
 }
 
 interface TestS3FilesystemForm extends forms.TestS3Filesystem{} // merge
@@ -752,7 +874,7 @@ interface TestS3FilesystemForm extends forms.TestS3Filesystem{} // merge
  * @group PocketBase
  */
 declare class TestS3FilesystemForm implements forms.TestS3Filesystem {
-  constructor(app: core.App)
+  constructor(app: CoreApp)
 }
 
 // -------------------------------------------------------------------
@@ -857,9 +979,11 @@ declare namespace $http {
    *     method: "post",
    * })
    *
-   * console.log(res.statusCode)
-   * console.log(res.raw)
-   * console.log(res.json)
+   * console.log(res.statusCode) // the response HTTP status code
+   * console.log(res.headers)    // the response headers (eg. res.headers['X-Custom'][0])
+   * console.log(res.cookies)    // the response cookies (eg. res.cookies.sessionId.value)
+   * console.log(res.raw)        // the response body as plain text
+   * console.log(res.json)       // the response body as parsed json array or map
    * ` + "```" + `
    */
   function send(config: {
@@ -872,9 +996,11 @@ declare namespace $http {
     // deprecated, please use body instead
     data?: { [key:string]: any },
   }): {
-    statusCode: number
-    raw:        string
-    json:       any
+    statusCode: number,
+    headers:    { [key:string]: Array<string> },
+    cookies:    { [key:string]: http.Cookie },
+    raw:        string,
+    json:       any,
   };
 }
 
@@ -908,6 +1034,7 @@ func main() {
 			"github.com/pocketbase/pocketbase/tools/filesystem": {"*"},
 			"github.com/pocketbase/pocketbase/tools/template":   {"*"},
 			"github.com/pocketbase/pocketbase/tokens":           {"*"},
+			"github.com/pocketbase/pocketbase/mails":            {"*"},
 			"github.com/pocketbase/pocketbase/apis":             {"*"},
 			"github.com/pocketbase/pocketbase/forms":            {"*"},
 			"github.com/pocketbase/pocketbase":                  {"*"},
@@ -952,6 +1079,12 @@ func main() {
 	if !ok {
 		log.Fatal("Failed to get the current docs directory")
 	}
+
+	// replace the original app interfaces with their non-"on*"" hooks equivalents
+	result = strings.ReplaceAll(result, "core.App", "CoreApp")
+	result = strings.ReplaceAll(result, "pocketbase.PocketBase", "PocketBase")
+	result = strings.ReplaceAll(result, "ORIGINAL_CORE_APP", "core.App")
+	result = strings.ReplaceAll(result, "ORIGINAL_POCKETBASE", "pocketbase.PocketBase")
 
 	parentDir := filepath.Dir(filename)
 	typesFile := filepath.Join(parentDir, "generated", "types.d.ts")

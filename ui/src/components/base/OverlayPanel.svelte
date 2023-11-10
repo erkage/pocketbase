@@ -167,34 +167,32 @@
             contentScrollClass = "";
         }
 
-        if (!panel) {
+        if (!panel || contentScrollThrottle) {
             return;
         }
 
-        if (!contentScrollThrottle) {
-            contentScrollThrottle = setTimeout(() => {
-                clearTimeout(contentScrollThrottle);
-                contentScrollThrottle = null;
+        contentScrollThrottle = setTimeout(() => {
+            clearTimeout(contentScrollThrottle);
+            contentScrollThrottle = null;
 
-                if (!panel) {
-                    return; // deleted during timeout
-                }
+            if (!panel) {
+                return; // deleted during timeout
+            }
 
-                let heightDiff = panel.scrollHeight - panel.offsetHeight;
-                if (heightDiff > 0) {
-                    contentScrollClass = "scrollable";
-                } else {
-                    contentScrollClass = "";
-                    return; // no scroll
-                }
+            let heightDiff = panel.scrollHeight - panel.offsetHeight;
+            if (heightDiff > 0) {
+                contentScrollClass = "scrollable";
+            } else {
+                contentScrollClass = "";
+                return; // no scroll
+            }
 
-                if (panel.scrollTop == 0) {
-                    contentScrollClass += " scroll-top-reached";
-                } else if (panel.scrollTop + panel.offsetHeight == panel.scrollHeight) {
-                    contentScrollClass += " scroll-bottom-reached";
-                }
-            }, 100);
-        }
+            if (panel.scrollTop == 0) {
+                contentScrollClass += " scroll-top-reached";
+            } else if (panel.scrollTop + panel.offsetHeight == panel.scrollHeight) {
+                contentScrollClass += " scroll-bottom-reached";
+            }
+        }, 100);
     }
 
     onMount(() => {
@@ -223,10 +221,11 @@
     {#if active}
         <div class="overlay-panel-container" class:padded={popup} class:active>
             <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
             <div
                 class="overlay"
                 on:click|preventDefault={() => (overlayClose ? hide() : true)}
-                transition:fade|local={{ duration: transitionSpeed, opacity: 0 }}
+                transition:fade={{ duration: transitionSpeed, opacity: 0 }}
             />
 
             <div
@@ -237,7 +236,12 @@
             >
                 <div class="overlay-panel-section panel-header">
                     {#if btnClose && !popup}
-                        <button type="button" class="overlay-close" on:click|preventDefault={hide}>
+                        <button
+                            type="button"
+                            class="overlay-close"
+                            transition:fade={{ duration: transitionSpeed }}
+                            on:click|preventDefault={hide}
+                        >
                             <i class="ri-close-line" />
                         </button>
                     {/if}

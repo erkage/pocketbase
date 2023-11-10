@@ -32,13 +32,13 @@
 
     $: collectionId = field?.options?.collectionId;
 
-    $: displayFields = field?.options?.displayFields;
-
     $: collection = $collections.find((c) => c.id == collectionId) || null;
 
     $: if (typeof filter !== "undefined" && pickerPanel?.isActive()) {
         loadList(true); // reset list on filter change
     }
+
+    $: isView = collection?.type === "view";
 
     $: isLoading = isLoadingList || isLoadingSelected;
 
@@ -81,9 +81,11 @@
             }
 
             loadPromises.push(
-                ApiClient.collection(collectionId).getFullList(batchSize, {
+                ApiClient.collection(collectionId).getFullList({
+                    batch: batchSize,
                     filter: filters.join("||"),
-                    $autoCancel: false,
+                    fields: "*:excerpt(200)",
+                    requestKey: null,
                 })
             );
         }
@@ -139,9 +141,10 @@
 
             const result = await ApiClient.collection(collectionId).getList(page, batchSize, {
                 filter: CommonHelper.normalizeSearchFilter(filter, fallbackSearchFields),
-                sort: !collection?.$isView ? "-created" : "",
+                sort: !isView ? "-created" : "",
+                fields: "*:excerpt(200)",
                 skipTotal: 1,
-                $cancelKey: uniqueId + "loadList",
+                requestKey: uniqueId + "loadList",
             });
 
             list = CommonHelper.filterDuplicatesByKey(list.concat(result.items));
@@ -208,10 +211,10 @@
             autocompleteCollection={collection}
             on:submit={(e) => (filter = e.detail)}
         />
-        {#if !collection?.$isView}
+        {#if !isView}
             <button
                 type="button"
-                class="btn btn-transparent btn-hint p-l-sm p-r-sm"
+                class="btn btn-pill btn-transparent btn-hint p-l-xs p-r-xs"
                 on:click={() => upsertPanel?.show()}
             >
                 <div class="txt">New record</div>
@@ -250,9 +253,9 @@
                     <i class="ri-checkbox-blank-circle-line txt-disabled" />
                 {/if}
                 <div class="content">
-                    <RecordInfo {record} {displayFields} />
+                    <RecordInfo {record} />
                 </div>
-                {#if !collection?.$isView}
+                {#if !isView}
                     <div class="actions nonintrusive">
                         <button
                             type="button"
@@ -299,7 +302,7 @@
             {#each selected as record, i}
                 <Draggable bind:list={selected} index={i} let:dragging let:dragover>
                     <span class="label" class:label-danger={dragging} class:label-warning={dragover}>
-                        <RecordInfo {record} {displayFields} />
+                        <RecordInfo {record} />
                         <button
                             type="button"
                             title="Remove"
@@ -330,11 +333,11 @@
     bind:this={upsertPanel}
     {collection}
     on:save={(e) => {
-        CommonHelper.removeByKey(list, "id", e.detail.id);
-        list.unshift(e.detail);
+        CommonHelper.removeByKey(list, "id", e.detail.record.id);
+        list.unshift(e.detail.record);
         list = list;
 
-        select(e.detail);
+        select(e.detail.record);
     }}
     on:delete={(e) => {
         CommonHelper.removeByKey(list, "id", e.detail.id);

@@ -17,6 +17,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/archive"
 	"github.com/pocketbase/pocketbase/tools/cron"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
+	"github.com/pocketbase/pocketbase/tools/inflector"
 	"github.com/pocketbase/pocketbase/tools/osutils"
 	"github.com/pocketbase/pocketbase/tools/security"
 )
@@ -46,16 +47,15 @@ func (app *BaseApp) CreateBackup(ctx context.Context, name string) error {
 		return errors.New("try again later - another backup/restore operation has already been started")
 	}
 
-	// auto generate backup name
 	if name == "" {
-		name = fmt.Sprintf(
-			"pb_backup_%s.zip",
-			time.Now().UTC().Format("20060102150405"),
-		)
+		name = app.generateBackupName("pb_backup_")
 	}
 
 	app.Cache().Set(CacheKeyActiveBackup, name)
 	defer app.Cache().Remove(CacheKeyActiveBackup)
+
+	// root dir entries to exclude from the backup generation
+	exclude := []string{LocalBackupsDirName, LocalTempDirName}
 
 	// make sure that the special temp directory exists
 	// note: it needs to be inside the current pb_data to avoid "cross-device link" errors
@@ -64,14 +64,14 @@ func (app *BaseApp) CreateBackup(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to create a temp dir: %w", err)
 	}
 
-	// Archive pb_data in a temp directory, exluding the "backups" dir itself (if exist).
+	// Archive pb_data in a temp directory, exluding the "backups" and the temp dirs.
 	//
 	// Run in transaction to temporary block other writes (transactions uses the NonconcurrentDB connection).
 	// ---
 	tempPath := filepath.Join(localTempDir, "pb_backup_"+security.PseudorandomString(4))
 	createErr := app.Dao().RunInTransaction(func(txDao *daos.Dao) error {
 		// @todo consider experimenting with temp switching the readonly pragma after the db interface change
-		return archive.Create(app.DataDir(), tempPath, LocalBackupsDirName)
+		return archive.Create(app.DataDir(), tempPath, exclude...)
 	})
 	if createErr != nil {
 		return createErr
@@ -234,7 +234,6 @@ func (app *BaseApp) RestoreBackup(ctx context.Context, name string) error {
 }
 
 // initAutobackupHooks registers the autobackup app serve hooks.
-// @todo add tests
 func (app *BaseApp) initAutobackupHooks() error {
 	c := cron.New()
 	isServe := false
@@ -248,13 +247,9 @@ func (app *BaseApp) initAutobackupHooks() error {
 		}
 
 		c.Add("@autobackup", rawSchedule, func() {
-			autoPrefix := "@auto_pb_backup_"
+			const autoPrefix = "@auto_pb_backup_"
 
-			name := fmt.Sprintf(
-				"%s%s.zip",
-				autoPrefix,
-				time.Now().UTC().Format("20060102150405"),
-			)
+			name := app.generateBackupName(autoPrefix)
 
 			if err := app.CreateBackup(context.Background(), name); err != nil && app.IsDebug() {
 				// @todo replace after logs generalization
@@ -332,4 +327,18 @@ func (app *BaseApp) initAutobackupHooks() error {
 	})
 
 	return nil
+}
+
+func (app *BaseApp) generateBackupName(prefix string) string {
+	appName := inflector.Snakecase(app.Settings().Meta.AppName)
+	if len(appName) > 50 {
+		appName = appName[:50]
+	}
+
+	return fmt.Sprintf(
+		"%s%s_%s.zip",
+		prefix,
+		appName,
+		time.Now().UTC().Format("20060102150405"),
+	)
 }

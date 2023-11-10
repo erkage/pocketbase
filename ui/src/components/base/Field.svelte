@@ -45,14 +45,15 @@
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
+<!-- svelte-ignore a11y-no-static-element-interactions -->
 <div bind:this={container} class={classes} class:error={fieldErrors.length} on:click>
     <slot {uniqueId} />
 
     {#if inlineError && fieldErrors.length}
-        <div class="form-field-addon">
+        <div class="form-field-addon inline-error-icon">
             <i
                 class="ri-error-warning-fill txt-danger"
-                transition:scale|local={{ duration: 150, start: 0.7 }}
+                transition:scale={{ duration: 150, start: 0.7 }}
                 use:tooltip={{
                     position: "left",
                     text: fieldErrors.map(getErrorMessage).join("\n"),
@@ -61,7 +62,7 @@
         </div>
     {:else}
         {#each fieldErrors as error}
-            <div class="help-block help-block-error" transition:slide|local={{ duration: 150 }}>
+            <div class="help-block help-block-error" transition:slide={{ duration: 150 }}>
                 <pre>{getErrorMessage(error)}</pre>
             </div>
         {/each}

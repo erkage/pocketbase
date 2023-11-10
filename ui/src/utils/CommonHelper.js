@@ -79,7 +79,7 @@ export default class CommonHelper {
             tagName === "input" ||
             tagName === "select" ||
             tagName === "textarea" ||
-            element.isContentEditable
+            element?.isContentEditable
         )
     }
 
@@ -97,7 +97,7 @@ export default class CommonHelper {
             tagName === "button" ||
             tagName === "a" ||
             tagName === "details" ||
-            element.tabIndex >= 0
+            element?.tabIndex >= 0
         );
     }
 
@@ -419,19 +419,43 @@ export default class CommonHelper {
     }
 
     /**
-     * Generates random string (suitable for elements id and keys).
+     * Generates pseudo-random string (suitable for elements id and keys).
      *
      * @param  {Number} [length] Results string length (default 10)
      * @return {String}
      */
-    static randomString(length) {
-        length = length || 10;
-
+    static randomString(length = 10) {
         let result = "";
         let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
         for (let i = 0; i < length; i++) {
             result += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+        }
+
+        return result;
+    }
+
+    /**
+     * Generates cryptographically random secret string
+     * (if crypto is supported, otherwise fallback to randomString).
+     *
+     * @param  {Number} [length] Results string length (default 15)
+     * @return {String}
+     */
+    static randomSecret(length = 15) {
+        if (typeof crypto === "undefined") {
+            return CommonHelper.randomString(length)
+        }
+
+        const arr = new Uint8Array(length);
+        crypto.getRandomValues(arr);
+
+        const alphabet = "-_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"; // 64 to devide "cleanly" 256
+
+        let result = "";
+
+        for (let i = 0; i < length; i++) {
+            result += alphabet.charAt(arr[i] % alphabet.length);
         }
 
         return result;
@@ -625,8 +649,14 @@ export default class CommonHelper {
      * @return {Array}
      */
     static splitNonEmpty(str, separator = ",") {
-        const items = (str || "").split(separator);
         const result = [];
+
+        const items = (str || "")
+            .replaceAll("\\" + separator, "{_PB_ESCAPED_}")
+            .split(separator)
+            .map((item) => {
+                return item.replaceAll("{_PB_ESCAPED_}", separator);
+            });
 
         for (let item of items) {
             item = item.trim();
@@ -646,12 +676,16 @@ export default class CommonHelper {
      * @return {Array}
      */
     static joinNonEmpty(items, separator = ", ") {
+        items = items || [];
+
         const result = [];
+
+        const trimmedSeparator = separator.length > 1 ? separator.trim() : separator;
 
         for (let item of items) {
             item = typeof item === "string" ? item.trim() : "";
             if (!CommonHelper.isEmpty(item)) {
-                result.push(item);
+                result.push(item.replaceAll(trimmedSeparator, "\\" + trimmedSeparator));
             }
         }
 
@@ -811,6 +845,7 @@ export default class CommonHelper {
      * @return {Boolean}
      */
     static hasImageExtension(filename) {
+        filename = filename || "";
         return !!imageExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
     }
 
@@ -821,6 +856,7 @@ export default class CommonHelper {
      * @return {Boolean}
      */
     static hasVideoExtension(filename) {
+        filename = filename || "";
         return !!videoExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
     }
 
@@ -831,6 +867,7 @@ export default class CommonHelper {
      * @return {Boolean}
      */
     static hasAudioExtension(filename) {
+        filename = filename || "";
         return !!audioExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
     }
 
@@ -841,6 +878,7 @@ export default class CommonHelper {
      * @return {Boolean}
      */
     static hasDocumentExtension(filename) {
+        filename = filename || "";
         return !!documentExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
     }
 
@@ -944,25 +982,28 @@ export default class CommonHelper {
     static dummyCollectionRecord(collection) {
         const fields = collection?.schema || [];
 
+        const isAuth = collection?.type === "auth";
+        const isView = collection?.type === "view";
+
         const dummy = {
             "id": "RECORD_ID",
             "collectionId": collection?.id,
             "collectionName": collection?.name,
         };
 
-        if (collection?.isAuth) {
+        if (isAuth) {
             dummy["username"] = "username123";
             dummy["verified"] = false;
             dummy["emailVisibility"] = true;
             dummy["email"] = "test@example.com";
         }
 
-        const hasCreated = !collection?.$isView || CommonHelper.extractColumnsFromQuery(collection?.options?.query).includes("created");
+        const hasCreated = !isView || CommonHelper.extractColumnsFromQuery(collection?.options?.query).includes("created");
         if (hasCreated) {
             dummy["created"] = "2022-01-01 01:00:00.123Z";
         }
 
-        const hasUpdated = !collection?.$isView || CommonHelper.extractColumnsFromQuery(collection?.options?.query).includes("updated");
+        const hasUpdated = !isView || CommonHelper.extractColumnsFromQuery(collection?.options?.query).includes("updated");
         if (hasUpdated) {
             dummy["updated"] = "2022-01-01 23:59:59.456Z";
         }
@@ -1298,6 +1339,43 @@ export default class CommonHelper {
      * @return {Object}
      */
     static defaultEditorOptions() {
+        const allowedPasteNodes = [
+            "DIV", "P", "A", "EM", "B", "STRONG",
+            "H1", "H2", "H3", "H4", "H5", "H6",
+            "TABLE", "TR", "TD", "TH", "TBODY", "THEAD", "TFOOT",
+            "BR", "HR", "Q", "SUP", "SUB", "DEL",
+            "IMG", "OL", "UL", "LI", "CODE",
+        ];
+
+        function unwrap(node) {
+            let parent = node.parentNode;
+
+            // move children outside of the parent node
+            while (node.firstChild) {
+                parent.insertBefore(node.firstChild, node);
+            }
+
+            // remove the now empty parent element
+            parent.removeChild(node);
+        }
+
+        function cleanupPastedNode(node) {
+            if (!node) {
+                return; // nothing to cleanup
+            }
+
+            for (const child of node.children) {
+                cleanupPastedNode(child);
+            }
+
+            if (!allowedPasteNodes.includes(node.tagName)) {
+                unwrap(node);
+            } else {
+                node.removeAttribute("style");
+                node.removeAttribute("class");
+            }
+        }
+
         return {
             branding: false,
             promotion: false,
@@ -1322,7 +1400,10 @@ export default class CommonHelper {
                 "codesample",
                 "directionality",
             ],
-            toolbar: "styles | alignleft aligncenter alignright | bold italic forecolor backcolor | bullist numlist | link image table codesample direction | code fullscreen",
+            toolbar: "styles | alignleft aligncenter alignright | bold italic forecolor backcolor | bullist numlist | link image_picker table codesample direction | code fullscreen",
+            paste_postprocess: (editor, args) => {
+                cleanupPastedNode(args.node);
+            },
             file_picker_types: "image",
             // @see https://www.tiny.cloud/docs/tinymce/6/file-image-upload/#interactive-example
             file_picker_callback: (cb, value, meta) => {
@@ -1387,7 +1468,7 @@ export default class CommonHelper {
                                 icon: "ltr",
                                 onAction: () => {
                                     window?.localStorage?.setItem(lastDirectionKey, "ltr");
-                                    tinymce.activeEditor.execCommand("mceDirectionLTR");
+                                    editor.execCommand("mceDirectionLTR");
                                 }
                             },
                             {
@@ -1396,7 +1477,7 @@ export default class CommonHelper {
                                 icon: "rtl",
                                 onAction: () => {
                                     window?.localStorage?.setItem(lastDirectionKey, "rtl");
-                                    tinymce.activeEditor.execCommand("mceDirectionRTL");
+                                    editor.execCommand("mceDirectionRTL");
                                 }
                             }
                         ];
@@ -1404,6 +1485,32 @@ export default class CommonHelper {
                         callback(items);
                     }
                 });
+
+                editor.ui.registry.addMenuButton("image_picker", {
+                    icon: "image",
+                    fetch: (callback) => {
+                        const items = [
+                            {
+                                type: "menuitem",
+                                text: "From collection",
+                                icon: "gallery",
+                                onAction: () => {
+                                    editor.dispatch("collections_file_picker", {})
+                                }
+                            },
+                            {
+                                type: "menuitem",
+                                text: "Inline",
+                                icon: "browse",
+                                onAction: () => {
+                                    editor.execCommand("mceImage");
+                                }
+                            }
+                        ];
+
+                        callback(items);
+                    }
+                })
             },
         };
     }
@@ -1411,8 +1518,10 @@ export default class CommonHelper {
     /**
      * Tries to output the first displayable field of the provided model.
      *
-     * @param  {Object} model
-     * @return {Any}
+     * @param  {Object}        model
+     * @param  {Array<string>} displayFields
+     * @param  {String}        [missingValue]
+     * @return {String}
      */
     static displayValue(model, displayFields, missingValue = "N/A") {
         model = model || {};
@@ -1420,8 +1529,8 @@ export default class CommonHelper {
 
         let result = [];
 
-        for (const field of displayFields) {
-            let val = model[field];
+        for (const prop of displayFields) {
+            let val = model[prop];
 
             if (typeof val === "undefined") {
                 continue
@@ -1442,10 +1551,12 @@ export default class CommonHelper {
             "slug",
             "email",
             "username",
+            "nickname",
             "label",
             "heading",
             "message",
             "key",
+            "identifier",
             "id",
         ];
 
@@ -1542,11 +1653,11 @@ export default class CommonHelper {
 
         let result = [prefix + "id"];
 
-        if (collection.$isView) {
+        if (collection.type === "view") {
             for (let col of CommonHelper.extractColumnsFromQuery(collection.options.query)) {
                 CommonHelper.pushUnique(result, prefix + col);
             }
-        } else if (collection.$isAuth) {
+        } else if (collection.type === "auth") {
             result.push(prefix + "username");
             result.push(prefix + "email");
             result.push(prefix + "emailVisibility");
@@ -1799,5 +1910,116 @@ export default class CommonHelper {
             : searchTerm;
 
         return fallbackFields.map((f) => `${f}~${searchTerm}`).join("||");
+    }
+
+    /**
+     * Iniitialize a new blank Collection POJO and merge it with the provided data (if any).
+     *
+     * @param  {Object} [data]
+     * @return {Object}
+     */
+    static initCollection(data) {
+        return Object.assign({
+            id:         '',
+            created:    '',
+            updated:    '',
+            name:       '',
+            type:       'base',
+            system:     false,
+            listRule:   null,
+            viewRule:   null,
+            createRule: null,
+            updateRule: null,
+            deleteRule: null,
+            schema:     [],
+            indexes:    [],
+            options:    {},
+        }, data);
+    }
+
+    /**
+     * Iniitialize a new blank SchemaField POJO and merge it with the provided data (if any).
+     *
+     * @param  {Object} [data]
+     * @return {Object}
+     */
+    static initSchemaField(data) {
+        return Object.assign({
+            id:       '',
+            name:     '',
+            type:     'text',
+            system:   false,
+            required: false,
+            options:  {},
+        }, data);
+    }
+
+    /**
+     * Triggers a window resize event.
+     */
+    static triggerResize() {
+        window.dispatchEvent(new Event("resize"))
+    }
+
+    /**
+     * Extracts the hash query parameters from the current url and
+     * returns them as plain object.
+     *
+     * @return {Object}
+     */
+    static getHashQueryParams() {
+        let query = "";
+
+        const queryStart = window.location.hash.indexOf("?");
+        if (queryStart > -1) {
+            query = window.location.hash.substring(queryStart + 1);
+        }
+
+        return Object.fromEntries(new URLSearchParams(query))
+    }
+
+    /**
+     * Replaces the current hash query parameters with the provided `params`
+     * without adding new state to the browser history.
+     *
+     * @param {Object} params
+     */
+    static replaceHashQueryParams(params) {
+        params = params || {};
+
+        let query = "";
+
+        let hash = window.location.hash
+
+        const queryStart = hash.indexOf("?");
+        if (queryStart > -1) {
+            query = hash.substring(queryStart + 1);
+            hash = hash.substring(0, queryStart);
+        }
+
+        const parsed = new URLSearchParams(query)
+
+        for (let key in params) {
+            const val = params[key];
+
+            if (val === null) {
+                parsed.delete(key);
+            } else {
+                parsed.set(key, val);
+            }
+        }
+
+        query = parsed.toString();
+        if (query != "") {
+            hash += ("?" + query);
+        }
+
+        // replace the hash/fragment part with the updated one
+        let href = window.location.href;
+        const hashIndex = href.indexOf("#");
+        if (hashIndex > -1) {
+            href = href.substring(0, hashIndex);
+        }
+        window.location.replace(href + hash);
     }
 }

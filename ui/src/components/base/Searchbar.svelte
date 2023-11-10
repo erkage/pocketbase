@@ -1,7 +1,6 @@
 <script>
     import { createEventDispatcher, onMount } from "svelte";
     import { fly } from "svelte/transition";
-    import { Collection } from "pocketbase";
     import CommonHelper from "@/utils/CommonHelper";
 
     const dispatch = createEventDispatcher();
@@ -11,7 +10,7 @@
     export let placeholder = 'Search term or filter like created > "2022-01-01"...';
 
     // autocomplete filter component fields
-    export let autocompleteCollection = new Collection();
+    export let autocompleteCollection = CommonHelper.initCollection();
     export let extraAutocompleteKeys = [];
 
     let filterComponent;
@@ -55,6 +54,7 @@
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <form class="searchbar" on:click|stopPropagation on:submit|preventDefault={submit}>
     <label for={uniqueId} class="m-l-10 txt-xl">
         <i class="ri-search-line" />
@@ -86,8 +86,8 @@
     {#if (value.length || tempValue.length) && tempValue != value}
         <button
             type="submit"
-            class="btn btn-expanded btn-sm btn-warning"
-            transition:fly|local={{ duration: 150, x: 5 }}
+            class="btn btn-expanded-sm btn-sm btn-warning"
+            transition:fly={{ duration: 150, x: 5 }}
         >
             <span class="txt">Search</span>
         </button>
@@ -97,7 +97,7 @@
         <button
             type="button"
             class="btn btn-transparent btn-sm btn-hint p-l-xs p-r-xs m-l-10"
-            transition:fly|local={{ duration: 150, x: 5 }}
+            transition:fly={{ duration: 150, x: 5 }}
             on:click={() => {
                 clear(false);
                 submit();

@@ -43,6 +43,9 @@ button {
         vertical-align: middle;
         display: inline-block;
     }
+    .dropdown {
+        user-select: text;
+    }
 
     // background layer
     &:before {
@@ -185,6 +188,16 @@ button {
         &.btn-outline {
             border-color: var(--baseAlt2Color);
         }
+    }
+
+    // alignments
+    &.txt-left {
+        text-align: left;
+        justify-content: flex-start;
+    }
+    &.txt-right {
+        text-align: right;
+        justify-content: flex-end;
     }
 
     // sizes
@@ -338,6 +351,13 @@ button {
                 transform: translateX(-3px);
             }
         }
+    }
+
+    // scrolling helpers
+    &.btn-horizontal-sticky {
+        position: sticky;
+        left: var(--xsSpacing);
+        right: var(--xsSpacing);
     }
 }
 
@@ -549,6 +569,7 @@ select {
     // hints
     .help-block {
         @extend .content;
+        position: relative;
         margin-top: 8px;
         font-size: var(--smFontSize);
         line-height: var(--smLineHeight);
@@ -1066,6 +1087,16 @@ select {
             }
         }
     }
+
+    &.upside {
+        .selected-container.active {
+            border-radius: 0 0 var(--baseRadius) var(--baseRadius);
+        }
+        .options-dropdown {
+            border-radius: var(--baseRadius) var(--baseRadius) 0 0;
+            margin: 0;
+        }
+    }
 }
 
 .field-type-select {
@@ -1248,11 +1279,24 @@ select {
     }
 }
 body {
+    .tox .tox-dialog {
+        border: 0;
+        border-radius: var(--baseRadius);
+    }
+    .tox .tox-dialog-wrap__backdrop {
+        background: var(--overlayColor);
+    }
     .tox .tox-tbtn {
         height: 30px;
         svg {
             transform: scale(0.85);
         }
+    }
+    .tox .tox-collection__item-checkmark,
+    .tox .tox-collection__item-icon {
+        width: 22px;
+        height: 22px;
+        transform: scale(0.85);
     }
     .tox .tox-tbtn:not(.tox-tbtn--select) {
         width: 30px;
@@ -1273,6 +1317,10 @@ body {
         svg {
             display: none;
         }
+    }
+    .tox .tox-textarea-wrap {
+        display: flex;
+        flex: 1;
     }
     &.tox-fullscreen {
         .overlay-panel-section {

@@ -205,6 +205,24 @@ func TestNewProviderByName(t *testing.T) {
 		t.Errorf("Expected nil, got error %v", err)
 	}
 	if _, ok := p.(*auth.Yandex); !ok {
-		t.Error("Expected to be instance of *auth.yandex")
+		t.Error("Expected to be instance of *auth.Yandex")
+	}
+
+	// patreon
+	p, err = auth.NewProviderByName(auth.NamePatreon)
+	if err != nil {
+		t.Errorf("Expected nil, got error %v", err)
+	}
+	if _, ok := p.(*auth.Patreon); !ok {
+		t.Error("Expected to be instance of *auth.Patreon")
+	}
+
+	// mailcow
+	p, err = auth.NewProviderByName(auth.NameMailcow)
+	if err != nil {
+		t.Errorf("Expected nil, got error %v", err)
+	}
+	if _, ok := p.(*auth.Mailcow); !ok {
+		t.Error("Expected to be instance of *auth.Mailcow")
 	}
 }

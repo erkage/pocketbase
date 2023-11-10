@@ -5,13 +5,13 @@
     import CopyIcon from "@/components/base/CopyIcon.svelte";
     import RecordFileThumb from "@/components/records/RecordFileThumb.svelte";
     import RecordInfo from "@/components/records/RecordInfo.svelte";
-    import TinyMCE from "@tinymce/tinymce-svelte";
+    import TinyMCE from "@/components/base/TinyMCE.svelte";
 
     export let record;
     export let field;
     export let short = false;
 
-    $: rawValue = record[field.name];
+    $: rawValue = record?.[field.name];
 </script>
 
 {#if field.type === "json"}
@@ -48,23 +48,21 @@
 {:else if field.type === "editor"}
     {#if short}
         <span class="txt">
-            {CommonHelper.truncate(CommonHelper.plainText(rawValue), 250)}
+            {CommonHelper.truncate(CommonHelper.plainText(rawValue), 195)}
         </span>
     {:else}
         <TinyMCE
-            scriptSrc="{import.meta.env.BASE_URL}libs/tinymce/tinymce.min.js"
             cssClass="tinymce-preview"
             conf={{
                 branding: false,
                 promotion: false,
                 menubar: false,
-                min_height: 30,
                 statusbar: false,
+                min_height: 30,
                 height: 59,
                 max_height: 500,
                 autoresize_bottom_margin: 5,
                 resize: false,
-                skin: "pocketbase",
                 content_style: "body { font-size: 14px }",
                 toolbar: "",
                 plugins: ["autoresize"],
@@ -83,13 +81,13 @@
     </div>
 {:else if field.type === "relation"}
     {@const relations = CommonHelper.toArray(rawValue)}
-    {@const expanded = CommonHelper.toArray(record.expand[field.name])}
+    {@const expanded = CommonHelper.toArray(record?.expand?.[field.name])}
     {@const relLimit = short ? 20 : 500}
     <div class="inline-flex">
         {#if expanded.length}
             {#each expanded.slice(0, relLimit) as item, i (i + item)}
                 <span class="label">
-                    <RecordInfo record={item} displayFields={field.options?.displayFields} />
+                    <RecordInfo record={item} />
                 </span>
             {/each}
         {:else}
@@ -104,7 +102,7 @@
 {:else if field.type === "file"}
     {@const files = CommonHelper.toArray(rawValue)}
     {@const filesLimit = short ? 10 : 500}
-    <div class="inline-flex">
+    <div class="inline-flex" class:multiple={field.options?.maxSelect != 1}>
         {#each files.slice(0, filesLimit) as filename, i (i + filename)}
             <RecordFileThumb {record} {filename} size="sm" />
         {/each}

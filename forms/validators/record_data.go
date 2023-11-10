@@ -132,11 +132,14 @@ func (validator *RecordDataValidator) checkTextValue(field *schema.SchemaField, 
 
 	options, _ := field.Options.(*schema.TextOptions)
 
-	if options.Min != nil && len(val) < *options.Min {
+	// note: casted to []rune to count multi-byte chars as one
+	length := len([]rune(val))
+
+	if options.Min != nil && length < *options.Min {
 		return validation.NewError("validation_min_text_constraint", fmt.Sprintf("Must be at least %d character(s)", *options.Min))
 	}
 
-	if options.Max != nil && len(val) > *options.Max {
+	if options.Max != nil && length > *options.Max {
 		return validation.NewError("validation_max_text_constraint", fmt.Sprintf("Must be less than %d character(s)", *options.Max))
 	}
 
@@ -157,6 +160,10 @@ func (validator *RecordDataValidator) checkNumberValue(field *schema.SchemaField
 	}
 
 	options, _ := field.Options.(*schema.NumberOptions)
+
+	if options.NoDecimal && val != float64(int64(val)) {
+		return validation.NewError("validation_no_decimal_constraint", "Decimal numbers are not allowed")
+	}
 
 	if options.Min != nil && val < *options.Min {
 		return validation.NewError("validation_min_number_constraint", fmt.Sprintf("Must be larger than %f", *options.Min))

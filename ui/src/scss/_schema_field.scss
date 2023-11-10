@@ -55,22 +55,33 @@
         }
     }
 
-    // markers
-    .markers {
+    .field-labels {
         position: absolute;
         z-index: 1;
-        left: 4px;
-        top: 4px;
+        right: 0px;
+        top: 0px;
+        gap: 2px;
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        .marker {
-            $size: 4px;
-            display: block;
-            width: $size;
-            height: $size;
-            border-radius: $size;
-            background: var(--baseAlt4Color);
+        transition: opacity var(--baseAnimationSpeed);
+        .label {
+            min-height: 0;
+            font-size: inherit;
+            padding: 0px 2px;
+            font-size: 0.7rem;
+            line-height: 0.75rem;
+            border-radius: var(--baseRadius);
+        }
+        ~ .inline-error-icon {
+            margin-top: 4px;
+            i {
+                font-size: 1rem;
+            }
+        }
+    }
+    .form-field:focus-within {
+        .field-labels {
+            opacity: 0.2;
         }
     }
 }
@@ -80,6 +91,21 @@
     padding: var(--xsSpacing);
     border-bottom-left-radius: var(--baseRadius);
     border-bottom-right-radius: var(--baseRadius);
+    border-top: 2px solid transparent;
+    transition: border-color var(--baseAnimationSpeed);
+}
+
+.schema-field-options-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    gap: var(--baseSpacing);
+    .form-field {
+        margin: 0;
+        width: auto;
+    }
 }
 
 .schema-field {
@@ -115,7 +141,7 @@
             }
         }
         .schema-field-options {
-            border-top: 2px solid var(--baseAlt2Color);
+            border-top-color: var(--baseAlt2Color);
         }
     }
     &.deleted {

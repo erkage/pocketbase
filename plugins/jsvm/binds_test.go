@@ -24,6 +24,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/mailer"
 	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/spf13/cast"
 )
 
 func testBindsCount(vm *goja.Runtime, namespace string, count int, t *testing.T) {
@@ -45,7 +46,90 @@ func TestBaseBindsCount(t *testing.T) {
 	vm := goja.New()
 	baseBinds(vm)
 
-	testBindsCount(vm, "this", 13, t)
+	testBindsCount(vm, "this", 16, t)
+}
+
+func TestBaseBindsReaderToString(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	vm := goja.New()
+	baseBinds(vm)
+	vm.Set("reader", strings.NewReader("test"))
+
+	_, err := vm.RunString(`
+		let result = readerToString(reader)
+
+		if (result != "test") {
+			throw new Error('Expected "test", got ' + result);
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBaseBindsCookie(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	vm := goja.New()
+	baseBinds(vm)
+
+	_, err := vm.RunString(`
+		const cookie = new Cookie({
+			name:     "example_name",
+			value:    "example_value",
+			path:     "/example_path",
+			domain:   "example.com",
+			maxAge:   10,
+			secure:   true,
+			httpOnly: true,
+			sameSite: 3,
+		});
+
+		const result = cookie.string();
+
+		const expected = "example_name=example_value; Path=/example_path; Domain=example.com; Max-Age=10; HttpOnly; Secure; SameSite=Strict";
+
+		if (expected != result) {
+			throw new("Expected \n" + expected + "\ngot\n" + result);
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBaseBindsSubscriptionMessage(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	vm := goja.New()
+	baseBinds(vm)
+	vm.Set("bytesToString", func(b []byte) string {
+		return string(b)
+	})
+
+	_, err := vm.RunString(`
+		const payload = {
+			name: "test",
+			data: '{"test":123}'
+		}
+
+		const result = new SubscriptionMessage(payload);
+
+		if (result.name != payload.name) {
+			throw new("Expected name " + payload.name + ", got " + result.name);
+		}
+
+		if (bytesToString(result.data) != payload.data) {
+			throw new("Expected data '" + payload.data + "', got '" + bytesToString(result.data) + "'");
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestBaseBindsRecord(t *testing.T) {
@@ -484,6 +568,60 @@ func TestDbxBinds(t *testing.T) {
 	}
 }
 
+func TestMailsBindsCount(t *testing.T) {
+	vm := goja.New()
+	mailsBinds(vm)
+
+	testBindsCount(vm, "$mails", 4, t)
+}
+
+func TestMailsBinds(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	admin, err := app.Dao().FindAdminByEmail("test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	record, err := app.Dao().FindAuthRecordByEmail("users", "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vm := goja.New()
+	baseBinds(vm)
+	mailsBinds(vm)
+	vm.Set("$app", app)
+	vm.Set("admin", admin)
+	vm.Set("record", record)
+
+	_, vmErr := vm.RunString(`
+		$mails.sendAdminPasswordReset($app, admin);
+		if (!$app.testMailer.lastMessage.html.includes("/_/#/confirm-password-reset/")) {
+			throw new Error("Expected admin password reset email")
+		}
+
+		$mails.sendRecordPasswordReset($app, record);
+		if (!$app.testMailer.lastMessage.html.includes("/_/#/auth/confirm-password-reset/")) {
+			throw new Error("Expected record password reset email")
+		}
+
+		$mails.sendRecordVerification($app, record);
+		if (!$app.testMailer.lastMessage.html.includes("/_/#/auth/confirm-verification/")) {
+			throw new Error("Expected record verification email")
+		}
+
+		$mails.sendRecordChangeEmail($app, record, "new@example.com");
+		if (!$app.testMailer.lastMessage.html.includes("/_/#/auth/confirm-email-change/")) {
+			throw new Error("Expected record email change email")
+		}
+	`)
+	if vmErr != nil {
+		t.Fatal(vmErr)
+	}
+}
+
 func TestTokensBindsCount(t *testing.T) {
 	vm := goja.New()
 	tokensBinds(vm)
@@ -506,11 +644,11 @@ func TestTokensBinds(t *testing.T) {
 	}
 
 	vm := goja.New()
+	baseBinds(vm)
+	tokensBinds(vm)
 	vm.Set("$app", app)
 	vm.Set("admin", admin)
 	vm.Set("record", record)
-	baseBinds(vm)
-	tokensBinds(vm)
 
 	sceneraios := []struct {
 		js  string
@@ -568,7 +706,44 @@ func TestSecurityBindsCount(t *testing.T) {
 	vm := goja.New()
 	securityBinds(vm)
 
-	testBindsCount(vm, "$security", 9, t)
+	testBindsCount(vm, "$security", 15, t)
+}
+
+func TestSecurityCryptoBinds(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	vm := goja.New()
+	baseBinds(vm)
+	securityBinds(vm)
+
+	sceneraios := []struct {
+		js       string
+		expected string
+	}{
+		{`$security.md5("123")`, "202cb962ac59075b964b07152d234b70"},
+		{`$security.sha256("123")`, "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"},
+		{`$security.sha512("123")`, "3c9909afec25354d551dae21590bb26e38d53f2173b8d3dc3eee4c047e7ab1c1eb8b85103e3be7ba613b31bb5c9c36214dc9f14a42fd7a2fdb84856bca5c44c2"},
+		{`$security.hs256("hello", "test")`, "f151ea24bda91a18e89b8bb5793ef324b2a02133cce15a28a719acbd2e58a986"},
+		{`$security.hs512("hello", "test")`, "44f280e11103e295c26cd61dd1cdd8178b531b860466867c13b1c37a26b6389f8af110efbe0bb0717b9d9c87f6fe1c97b3b1690936578890e5669abf279fe7fd"},
+		{`$security.equal("abc", "abc")`, "true"},
+		{`$security.equal("abc", "abcd")`, "false"},
+	}
+
+	for _, s := range sceneraios {
+		t.Run(s.js, func(t *testing.T) {
+			result, err := vm.RunString(s.js)
+			if err != nil {
+				t.Fatalf("Failed to execute js script, got %v", err)
+			}
+
+			v := cast.ToString(result.Export())
+
+			if v != s.expected {
+				t.Fatalf("Expected %v \ngot \n%v", s.expected, v)
+			}
+		})
+	}
 }
 
 func TestSecurityRandomStringBinds(t *testing.T) {
@@ -590,16 +765,18 @@ func TestSecurityRandomStringBinds(t *testing.T) {
 	}
 
 	for _, s := range sceneraios {
-		result, err := vm.RunString(s.js)
-		if err != nil {
-			t.Fatalf("[%s] Failed to execute js script, got %v", s.js, err)
-		}
+		t.Run(s.js, func(t *testing.T) {
+			result, err := vm.RunString(s.js)
+			if err != nil {
+				t.Fatalf("Failed to execute js script, got %v", err)
+			}
 
-		v, _ := result.Export().(string)
+			v, _ := result.Export().(string)
 
-		if len(v) != s.length {
-			t.Fatalf("[%s] Expected %d length string, \ngot \n%v", s.js, s.length, v)
-		}
+			if len(v) != s.length {
+				t.Fatalf("Expected %d length string, \ngot \n%v", s.length, v)
+			}
+		})
 	}
 }
 
@@ -630,16 +807,18 @@ func TestSecurityJWTBinds(t *testing.T) {
 	}
 
 	for _, s := range sceneraios {
-		result, err := vm.RunString(s.js)
-		if err != nil {
-			t.Fatalf("[%s] Failed to execute js script, got %v", s.js, err)
-		}
+		t.Run(s.js, func(t *testing.T) {
+			result, err := vm.RunString(s.js)
+			if err != nil {
+				t.Fatalf("Failed to execute js script, got %v", err)
+			}
 
-		raw, _ := json.Marshal(result.Export())
+			raw, _ := json.Marshal(result.Export())
 
-		if string(raw) != s.expected {
-			t.Fatalf("[%s] Expected \n%s, \ngot \n%s", s.js, s.expected, raw)
-		}
+			if string(raw) != s.expected {
+				t.Fatalf("Expected \n%s, \ngot \n%s", s.expected, raw)
+			}
+		})
 	}
 }
 
@@ -907,9 +1086,9 @@ func TestHttpClientBindsCount(t *testing.T) {
 
 func TestHttpClientBindsSend(t *testing.T) {
 	// start a test server
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		if req.URL.Query().Get("testError") != "" {
-			rw.WriteHeader(400)
+			res.WriteHeader(400)
 			return
 		}
 
@@ -936,10 +1115,14 @@ func TestHttpClientBindsSend(t *testing.T) {
 			"body":    string(bodyRaw),
 		}
 
+		// add custom headers and cookies
+		res.Header().Add("X-Custom", "custom_header")
+		res.Header().Add("Set-Cookie", "sessionId=123456")
+
 		infoRaw, _ := json.Marshal(info)
 
 		// write back the submitted request
-		rw.Write(infoRaw)
+		res.Write(infoRaw)
 	}))
 	defer server.Close()
 
@@ -1006,6 +1189,8 @@ func TestHttpClientBindsSend(t *testing.T) {
 			}],
 			[test1, {
 				"statusCode":                "200",
+				"headers.X-Custom.0":        "custom_header",
+				"cookies.sessionId.value":   "123456",
 				"json.method":               "POST",
 				"json.headers.header1":      "123",
 				"json.headers.header2":      "456",
@@ -1014,6 +1199,8 @@ func TestHttpClientBindsSend(t *testing.T) {
 			}],
 			[test2, {
 				"statusCode":                "200",
+				"headers.X-Custom.0":        "custom_header",
+				"cookies.sessionId.value":   "123456",
 				"json.method":               "GET",
 				"json.headers.content_type": "text/plain",
 			}],
@@ -1248,5 +1435,5 @@ func TestOsBindsCount(t *testing.T) {
 	vm := goja.New()
 	osBinds(vm)
 
-	testBindsCount(vm, "$os", 16, t)
+	testBindsCount(vm, "$os", 17, t)
 }

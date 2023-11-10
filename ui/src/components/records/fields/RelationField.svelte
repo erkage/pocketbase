@@ -1,6 +1,5 @@
 <script>
     import { onDestroy } from "svelte";
-    import { SchemaField } from "pocketbase";
     import CommonHelper from "@/utils/CommonHelper";
     import ApiClient from "@/utils/ApiClient";
     import tooltip from "@/actions/tooltip";
@@ -11,14 +10,15 @@
 
     const batchSize = 100;
 
+    export let field;
     export let value;
     export let picker;
-    export let field = new SchemaField();
 
     let fieldRef;
     let list = [];
     let isLoading = false;
     let loadTimeoutId;
+    let invalidIds = [];
 
     $: isMultiple = field.options?.maxSelect != 1;
 
@@ -51,7 +51,9 @@
     async function load() {
         const ids = CommonHelper.toArray(value);
 
-        list = []; // reset
+        // reset
+        list = [];
+        invalidIds = [];
 
         if (!field?.options?.collectionId || !ids.length) {
             isLoading = false;
@@ -72,7 +74,8 @@
             loadPromises.push(
                 ApiClient.collection(field?.options?.collectionId).getFullList(batchSize, {
                     filter: filters.join("||"),
-                    $autoCancel: false,
+                    fields: "*:excerpt(200)",
+                    requestKey: null,
                 })
             );
         }
@@ -88,6 +91,8 @@
                 const rel = CommonHelper.findByKey(loadedItems, "id", id);
                 if (rel) {
                     list.push(rel);
+                } else {
+                    invalidIds.push(id);
                 }
             }
 
@@ -132,6 +137,17 @@
     <label for={uniqueId}>
         <i class={CommonHelper.getFieldTypeIcon(field.type)} />
         <span class="txt">{field.name}</span>
+        {#if invalidIds.length}
+            <i
+                class="ri-error-warning-line link-hint m-l-auto flex-order-10"
+                use:tooltip={{
+                    position: "left",
+                    text:
+                        "The following relation ids were removed from the list because they are missing or invalid: " +
+                        invalidIds.join(", "),
+                }}
+            />
+        {/if}
     </label>
 
     <div class="list">
@@ -150,7 +166,7 @@
                 >
                     <div class="list-item" class:dragging class:dragover>
                         <div class="content">
-                            <RecordInfo {record} displayFields={field.options?.displayFields} />
+                            <RecordInfo {record} />
                         </div>
                         <div class="actions">
                             <button

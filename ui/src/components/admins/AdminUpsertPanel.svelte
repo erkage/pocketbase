@@ -1,22 +1,22 @@
 <script>
     import { createEventDispatcher } from "svelte";
     import { slide } from "svelte/transition";
-    import { Admin } from "pocketbase";
     import CommonHelper from "@/utils/CommonHelper";
     import ApiClient from "@/utils/ApiClient";
-    import tooltip from "@/actions/tooltip";
     import { setErrors } from "@/stores/errors";
     import { confirm } from "@/stores/confirmation";
     import { addSuccessToast } from "@/stores/toasts";
     import Field from "@/components/base/Field.svelte";
     import Toggler from "@/components/base/Toggler.svelte";
+    import ModelDateIcon from "@/components/base/ModelDateIcon.svelte";
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
+    import SecretGeneratorButton from "@/components/base/SecretGeneratorButton.svelte";
 
     const dispatch = createEventDispatcher();
     const formId = "admin_" + CommonHelper.randomString(5);
 
     let panel;
-    let admin = new Admin();
+    let admin = {};
     let isSaving = false;
     let confirmClose = false; // prevent close recursion
     let avatar = 0;
@@ -25,11 +25,10 @@
     let passwordConfirm = "";
     let changePasswordToggle = false;
 
+    $: isNew = !admin?.id;
+
     $: hasChanges =
-        (admin.$isNew && email != "") ||
-        changePasswordToggle ||
-        email !== admin.email ||
-        avatar !== admin.avatar;
+        (isNew && email != "") || changePasswordToggle || email !== admin.email || avatar !== admin.avatar;
 
     export function show(model) {
         load(model);
@@ -44,7 +43,7 @@
     }
 
     function load(model) {
-        admin = model?.$clone ? model.$clone() : new Admin();
+        admin = structuredClone(model || {});
         reset(); // reset form
     }
 
@@ -65,13 +64,13 @@
         isSaving = true;
 
         const data = { email, avatar };
-        if (admin.$isNew || changePasswordToggle) {
+        if (isNew || changePasswordToggle) {
             data["password"] = password;
             data["passwordConfirm"] = passwordConfirm;
         }
 
         let request;
-        if (admin.$isNew) {
+        if (isNew) {
             request = ApiClient.admins.create(data);
         } else {
             request = ApiClient.admins.update(admin.id, data);
@@ -81,7 +80,7 @@
             .then(async (result) => {
                 confirmClose = false;
                 hide();
-                addSuccessToast(admin.$isNew ? "Successfully created admin." : "Successfully updated admin.");
+                addSuccessToast(isNew ? "Successfully created admin." : "Successfully updated admin.");
 
                 if (ApiClient.authStore.model?.id === result.id) {
                     ApiClient.authStore.save(ApiClient.authStore.token, result);
@@ -137,25 +136,19 @@
 >
     <svelte:fragment slot="header">
         <h4>
-            {admin.$isNew ? "New admin" : "Edit admin"}
+            {isNew ? "New admin" : "Edit admin"}
         </h4>
     </svelte:fragment>
 
     <form id={formId} class="grid" autocomplete="off" on:submit|preventDefault={save}>
-        {#if !admin.$isNew}
+        {#if !isNew}
             <Field class="form-field readonly" name="id" let:uniqueId>
                 <label for={uniqueId}>
                     <i class={CommonHelper.getFieldTypeIcon("primary")} />
                     <span class="txt">id</span>
                 </label>
                 <div class="form-field-addon">
-                    <i
-                        class="ri-calendar-event-line txt-disabled"
-                        use:tooltip={{
-                            text: `Created: ${admin.created}\nUpdated: ${admin.updated}`,
-                            position: "left",
-                        }}
-                    />
+                    <ModelDateIcon model={admin} />
                 </div>
                 <input type="text" id={uniqueId} value={admin.id} readonly />
             </Field>
@@ -167,7 +160,7 @@
                 {#each [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as index}
                     <button
                         type="button"
-                        class="link-fade thumb thumb-circle {index == avatar ? 'thumb-active' : 'thumb-sm'}"
+                        class="link-fade thumb thumb-circle {index == avatar ? 'thumb-primary' : 'thumb-sm'}"
                         on:click={() => (avatar = index)}
                     >
                         <img
@@ -187,16 +180,16 @@
             <input type="email" autocomplete="off" id={uniqueId} required bind:value={email} />
         </Field>
 
-        {#if !admin.$isNew}
+        {#if !isNew}
             <Field class="form-field form-field-toggle" let:uniqueId>
                 <input type="checkbox" id={uniqueId} bind:checked={changePasswordToggle} />
                 <label for={uniqueId}>Change password</label>
             </Field>
         {/if}
 
-        {#if admin.$isNew || changePasswordToggle}
+        {#if isNew || changePasswordToggle}
             <div class="col-12">
-                <div class="grid" transition:slide|local={{ duration: 150 }}>
+                <div class="grid" transition:slide={{ duration: 150 }}>
                     <div class="col-sm-6">
                         <Field class="form-field required" name="password" let:uniqueId>
                             <label for={uniqueId}>
@@ -210,6 +203,9 @@
                                 required
                                 bind:value={password}
                             />
+                            <div class="form-field-addon">
+                                <SecretGeneratorButton />
+                            </div>
                         </Field>
                     </div>
                     <div class="col-sm-6">
@@ -233,7 +229,7 @@
     </form>
 
     <svelte:fragment slot="footer">
-        {#if !admin.$isNew}
+        {#if !isNew}
             <button type="button" aria-label="More" class="btn btn-sm btn-circle btn-transparent">
                 <!-- empty span for alignment -->
                 <span />
@@ -258,7 +254,7 @@
             class:btn-loading={isSaving}
             disabled={!hasChanges || isSaving}
         >
-            <span class="txt">{admin.$isNew ? "Create" : "Save changes"}</span>
+            <span class="txt">{isNew ? "Create" : "Save changes"}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

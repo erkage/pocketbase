@@ -1,12 +1,12 @@
 <script>
-    import { Collection } from "pocketbase";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
     import CodeBlock from "@/components/base/CodeBlock.svelte";
     import FilterSyntax from "@/components/collections/docs/FilterSyntax.svelte";
     import SdkTabs from "@/components/collections/docs/SdkTabs.svelte";
+    import FieldsQueryParam from "@/components/collections/docs/FieldsQueryParam.svelte";
 
-    export let collection = new Collection();
+    export let collection;
 
     let responseTab = 200;
     let responses = [];
@@ -210,16 +210,7 @@
                 Only the relations to which the request user has permissions to <strong>view</strong> will be expanded.
             </td>
         </tr>
-        <tr>
-            <td id="query-page">fields</td>
-            <td>
-                <span class="label">String</span>
-            </td>
-            <td>
-                Comma separated string of the fields to return in the JSON response
-                <em>(by default returns all fields)</em>.
-            </td>
-        </tr>
+        <FieldsQueryParam />
         <tr>
             <td id="query-page">skipTotal</td>
             <td>
@@ -243,7 +234,7 @@
 
 <div class="section-title">Responses</div>
 <div class="tabs">
-    <div class="tabs-header compact left">
+    <div class="tabs-header compact combined left">
         {#each responses as response (response.code)}
             <button
                 type="button"
