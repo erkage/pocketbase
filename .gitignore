@@ -11,7 +11,7 @@ pb_data/*
 /.builds/
 
 # ui builds folder
-/ui/dist/*
+/ui/dist/
 
 # tests coverage
 coverage.out
