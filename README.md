@@ -157,3 +157,16 @@ Later we can always refer to it and/or take pieces of your implementation when t
 > [!NOTE]
 > PocketBase was initially created to serve as a new backend for my other open source project - [Presentator](https://presentator.io) (see [#183](https://github.com/presentator/presentator/issues/183)),
 > so all feature requests will be first aligned with what we need for Presentator v3.
+
+## My Changes
+
+To enable hotload during dev run the following commmands:
+
+In `/ui/` folder:
+```sh
+vite build-watch
+```
+In `/` folder:
+```sh
+air serve
+```
