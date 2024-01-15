@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"sort"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/dbx"
@@ -73,12 +74,15 @@ func (api *recordAuthApi) authRefresh(c echo.Context) error {
 }
 
 type providerInfo struct {
-	Name                string `json:"name"`
-	State               string `json:"state"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	State       string `json:"state"`
+	AuthUrl     string `json:"authUrl"`
+	// technically could be omitted if the provider doesn't support PKCE,
+	// but to avoid breaking existing typed clients we'll return them as empty string
 	CodeVerifier        string `json:"codeVerifier"`
 	CodeChallenge       string `json:"codeChallenge"`
 	CodeChallengeMethod string `json:"codeChallengeMethod"`
-	AuthUrl             string `json:"authUrl"`
 }
 
 func (api *recordAuthApi) authMethods(c echo.Context) error {
@@ -90,12 +94,14 @@ func (api *recordAuthApi) authMethods(c echo.Context) error {
 	authOptions := collection.AuthOptions()
 
 	result := struct {
+		AuthProviders    []providerInfo `json:"authProviders"`
 		UsernamePassword bool           `json:"usernamePassword"`
 		EmailPassword    bool           `json:"emailPassword"`
-		AuthProviders    []providerInfo `json:"authProviders"`
+		OnlyVerified     bool           `json:"onlyVerified"`
 	}{
 		UsernamePassword: authOptions.AllowUsernameAuth,
 		EmailPassword:    authOptions.AllowEmailAuth,
+		OnlyVerified:     authOptions.OnlyVerified,
 		AuthProviders:    []providerInfo{},
 	}
 
@@ -111,50 +117,60 @@ func (api *recordAuthApi) authMethods(c echo.Context) error {
 
 		provider, err := auth.NewProviderByName(name)
 		if err != nil {
-			if api.app.IsDebug() {
-				log.Println(err)
-			}
+			api.app.Logger().Debug("Missing or invalid provier name", slog.String("name", name))
 			continue // skip provider
 		}
 
 		if err := config.SetupProvider(provider); err != nil {
-			if api.app.IsDebug() {
-				log.Println(err)
-			}
+			api.app.Logger().Debug(
+				"Failed to setup provider",
+				slog.String("name", name),
+				slog.String("error", err.Error()),
+			)
 			continue // skip provider
 		}
 
-		state := security.RandomString(30)
-		codeVerifier := security.RandomString(43)
-		codeChallenge := security.S256Challenge(codeVerifier)
-		codeChallengeMethod := "S256"
-		urlOpts := []oauth2.AuthCodeOption{
-			oauth2.SetAuthURLParam("code_challenge", codeChallenge),
-			oauth2.SetAuthURLParam("code_challenge_method", codeChallengeMethod),
+		info := providerInfo{
+			Name:        name,
+			DisplayName: provider.DisplayName(),
+			State:       security.RandomString(30),
 		}
+
+		if info.DisplayName == "" {
+			info.DisplayName = name
+		}
+
+		urlOpts := []oauth2.AuthCodeOption{}
 
 		// custom providers url options
 		switch name {
 		case auth.NameApple:
 			// see https://developer.apple.com/documentation/sign_in_with_apple/sign_in_with_apple_js/incorporating_sign_in_with_apple_into_other_platforms#3332113
 			urlOpts = append(urlOpts, oauth2.SetAuthURLParam("response_mode", "query"))
-		case auth.NameVK:
-			// vk currently doesn't support PKCE for server-side authorization
-			urlOpts = []oauth2.AuthCodeOption{}
 		}
 
-		result.AuthProviders = append(result.AuthProviders, providerInfo{
-			Name:                name,
-			State:               state,
-			CodeVerifier:        codeVerifier,
-			CodeChallenge:       codeChallenge,
-			CodeChallengeMethod: codeChallengeMethod,
-			AuthUrl: provider.BuildAuthUrl(
-				state,
-				urlOpts...,
-			) + "&redirect_uri=", // empty redirect_uri so that users can append their redirect url
-		})
+		if provider.PKCE() {
+			info.CodeVerifier = security.RandomString(43)
+			info.CodeChallenge = security.S256Challenge(info.CodeVerifier)
+			info.CodeChallengeMethod = "S256"
+			urlOpts = append(urlOpts,
+				oauth2.SetAuthURLParam("code_challenge", info.CodeChallenge),
+				oauth2.SetAuthURLParam("code_challenge_method", info.CodeChallengeMethod),
+			)
+		}
+
+		info.AuthUrl = provider.BuildAuthUrl(
+			info.State,
+			urlOpts...,
+		) + "&redirect_uri=" // empty redirect_uri so that users can append their redirect url
+
+		result.AuthProviders = append(result.AuthProviders, info)
 	}
+
+	// sort providers
+	sort.SliceStable(result.AuthProviders, func(i, j int) bool {
+		return result.AuthProviders[i].Name < result.AuthProviders[j].Name
+	})
 
 	return c.JSON(http.StatusOK, result)
 }
@@ -327,8 +343,11 @@ func (api *recordAuthApi) requestPasswordReset(c echo.Context) error {
 			return api.app.OnRecordBeforeRequestPasswordResetRequest().Trigger(event, func(e *core.RecordRequestPasswordResetEvent) error {
 				// run in background because we don't need to show the result to the client
 				routine.FireAndForget(func() {
-					if err := next(e.Record); err != nil && api.app.IsDebug() {
-						log.Println(err)
+					if err := next(e.Record); err != nil {
+						api.app.Logger().Debug(
+							"Failed to send password reset email",
+							slog.String("error", err.Error()),
+						)
 					}
 				})
 
@@ -416,8 +435,11 @@ func (api *recordAuthApi) requestVerification(c echo.Context) error {
 			return api.app.OnRecordBeforeRequestVerificationRequest().Trigger(event, func(e *core.RecordRequestVerificationEvent) error {
 				// run in background because we don't need to show the result to the client
 				routine.FireAndForget(func() {
-					if err := next(e.Record); err != nil && api.app.IsDebug() {
-						log.Println(err)
+					if err := next(e.Record); err != nil {
+						api.app.Logger().Debug(
+							"Failed to send verification email",
+							slog.String("error", err.Error()),
+						)
 					}
 				})
 

@@ -310,6 +310,7 @@ func (f *SchemaField) PrepareValue(value any) any {
 			} else if str == "null" || str == "true" || str == "false" {
 				val = str
 			} else if ((str[0] >= '0' && str[0] <= '9') ||
+				str[0] == '-' ||
 				str[0] == '"' ||
 				str[0] == '[' ||
 				str[0] == '{') &&
@@ -611,10 +612,13 @@ func (o SelectOptions) IsMultiple() bool {
 // -------------------------------------------------------------------
 
 type JsonOptions struct {
+	MaxSize int `form:"maxSize" json:"maxSize"`
 }
 
 func (o JsonOptions) Validate() error {
-	return nil
+	return validation.ValidateStruct(&o,
+		validation.Field(&o.MaxSize, validation.Required, validation.Min(1)),
+	)
 }
 
 // -------------------------------------------------------------------
@@ -622,10 +626,10 @@ func (o JsonOptions) Validate() error {
 var _ MultiValuer = (*FileOptions)(nil)
 
 type FileOptions struct {
-	MaxSelect int      `form:"maxSelect" json:"maxSelect"`
-	MaxSize   int      `form:"maxSize" json:"maxSize"` // in bytes
 	MimeTypes []string `form:"mimeTypes" json:"mimeTypes"`
 	Thumbs    []string `form:"thumbs" json:"thumbs"`
+	MaxSelect int      `form:"maxSelect" json:"maxSelect"`
+	MaxSize   int      `form:"maxSize" json:"maxSize"`
 	Protected bool     `form:"protected" json:"protected"`
 }
 

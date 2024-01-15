@@ -117,6 +117,13 @@ func (s *System) GetFile(fileKey string) (*blob.Reader, error) {
 	return br, nil
 }
 
+// Copy copies the file stored at srcKey to dstKey.
+//
+// If dstKey file already exists, it is overwritten.
+func (s *System) Copy(srcKey, dstKey string) error {
+	return s.bucket.Copy(s.ctx, dstKey, srcKey, nil)
+}
+
 // List returns a flat list with info for all files under the specified prefix.
 func (s *System) List(prefix string) ([]*blob.ListObject, error) {
 	files := []*blob.ListObject{}
@@ -422,21 +429,21 @@ func (s *System) CreateThumb(originalKey string, thumbKey, thumbSize string) err
 
 	if width == 0 || height == 0 {
 		// force resize preserving aspect ratio
-		thumbImg = imaging.Resize(img, width, height, imaging.CatmullRom)
+		thumbImg = imaging.Resize(img, width, height, imaging.Linear)
 	} else {
 		switch resizeType {
 		case "f":
 			// fit
-			thumbImg = imaging.Fit(img, width, height, imaging.CatmullRom)
+			thumbImg = imaging.Fit(img, width, height, imaging.Linear)
 		case "t":
 			// fill and crop from top
-			thumbImg = imaging.Fill(img, width, height, imaging.Top, imaging.CatmullRom)
+			thumbImg = imaging.Fill(img, width, height, imaging.Top, imaging.Linear)
 		case "b":
 			// fill and crop from bottom
-			thumbImg = imaging.Fill(img, width, height, imaging.Bottom, imaging.CatmullRom)
+			thumbImg = imaging.Fill(img, width, height, imaging.Bottom, imaging.Linear)
 		default:
 			// fill and crop from center
-			thumbImg = imaging.Fill(img, width, height, imaging.Center, imaging.CatmullRom)
+			thumbImg = imaging.Fill(img, width, height, imaging.Center, imaging.Linear)
 		}
 	}
 

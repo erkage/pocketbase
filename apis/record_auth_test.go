@@ -17,6 +17,8 @@ import (
 )
 
 func TestRecordAuthMethodsList(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:            "missing collection",
@@ -40,6 +42,7 @@ func TestRecordAuthMethodsList(t *testing.T) {
 			ExpectedContent: []string{
 				`"usernamePassword":true`,
 				`"emailPassword":true`,
+				`"onlyVerified":false`,
 				`"authProviders":[{`,
 				`"name":"gitlab"`,
 				`"state":`,
@@ -58,6 +61,7 @@ func TestRecordAuthMethodsList(t *testing.T) {
 			ExpectedContent: []string{
 				`"usernamePassword":false`,
 				`"emailPassword":true`,
+				`"onlyVerified":true`,
 				`"authProviders":[]`,
 			},
 		},
@@ -69,6 +73,8 @@ func TestRecordAuthMethodsList(t *testing.T) {
 }
 
 func TestRecordAuthWithPassword(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:            "invalid body format",
@@ -212,7 +218,7 @@ func TestRecordAuthWithPassword(t *testing.T) {
 			},
 		},
 		{
-			Name:   "valid email and valid password in allowed collection",
+			Name:   "valid email (unverified) and valid password in allowed collection",
 			Method: http.MethodPost,
 			Url:    "/api/collections/users/auth-with-password",
 			Body: strings.NewReader(`{
@@ -225,6 +231,48 @@ func TestRecordAuthWithPassword(t *testing.T) {
 				`"token":"`,
 				`"id":"4q1xlclmfloku33"`,
 				`"email":"test@example.com"`,
+				`"verified":false`,
+			},
+			ExpectedEvents: map[string]int{
+				"OnRecordBeforeAuthWithPasswordRequest": 1,
+				"OnRecordAfterAuthWithPasswordRequest":  1,
+				"OnRecordAuthRequest":                   1,
+			},
+		},
+
+		// onlyVerified collection check
+		{
+			Name:   "unverified user in onlyVerified collection",
+			Method: http.MethodPost,
+			Url:    "/api/collections/clients/auth-with-password",
+			Body: strings.NewReader(`{
+				"identity":"test2@example.com",
+				"password":"1234567890"
+			}`),
+			ExpectedStatus: 403,
+			ExpectedContent: []string{
+				`"data":{}`,
+			},
+			ExpectedEvents: map[string]int{
+				"OnRecordBeforeAuthWithPasswordRequest": 1,
+				"OnRecordAfterAuthWithPasswordRequest":  1,
+			},
+		},
+		{
+			Name:   "verified user in onlyVerified collection",
+			Method: http.MethodPost,
+			Url:    "/api/collections/clients/auth-with-password",
+			Body: strings.NewReader(`{
+				"identity":"test@example.com",
+				"password":"1234567890"
+			}`),
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"record":{`,
+				`"token":"`,
+				`"id":"gk390qegs4y47wn"`,
+				`"email":"test@example.com"`,
+				`"verified":true`,
 			},
 			ExpectedEvents: map[string]int{
 				"OnRecordBeforeAuthWithPasswordRequest": 1,
@@ -312,6 +360,8 @@ func TestRecordAuthWithPassword(t *testing.T) {
 }
 
 func TestRecordAuthRefresh(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:            "unauthorized",
@@ -378,6 +428,41 @@ func TestRecordAuthRefresh(t *testing.T) {
 			},
 		},
 		{
+			Name:   "unverified auth record in onlyVerified collection",
+			Method: http.MethodPost,
+			Url:    "/api/collections/clients/auth-refresh",
+			RequestHeaders: map[string]string{
+				"Authorization": "eyJhbGciOiJIUzI1NiJ9.eyJpZCI6Im8xeTBkZDBzcGQ3ODZtZCIsInR5cGUiOiJhdXRoUmVjb3JkIiwiY29sbGVjdGlvbklkIjoidjg1MXE0cjc5MHJoa25sIiwiZXhwIjoyMjA4OTg1MjYxfQ.-JYlrz5DcGzvb0nYx-xqnSFMu9dupyKY7Vg_FUm0OaM",
+			},
+			ExpectedStatus:  403,
+			ExpectedContent: []string{`"data":{}`},
+			ExpectedEvents: map[string]int{
+				"OnRecordBeforeAuthRefreshRequest": 1,
+				"OnRecordAfterAuthRefreshRequest":  1,
+			},
+		},
+		{
+			Name:   "verified auth record in onlyVerified collection",
+			Method: http.MethodPost,
+			Url:    "/api/collections/clients/auth-refresh",
+			RequestHeaders: map[string]string{
+				"Authorization": "eyJhbGciOiJIUzI1NiJ9.eyJpZCI6ImdrMzkwcWVnczR5NDd3biIsInR5cGUiOiJhdXRoUmVjb3JkIiwiY29sbGVjdGlvbklkIjoidjg1MXE0cjc5MHJoa25sIiwiZXhwIjoyMjA4OTg1MjYxfQ.q34IWXrRWsjLvbbVNRfAs_J4SoTHloNBfdGEiLmy-D8",
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"token":`,
+				`"record":`,
+				`"id":"gk390qegs4y47wn"`,
+				`"verified":true`,
+				`"email":"test@example.com"`,
+			},
+			ExpectedEvents: map[string]int{
+				"OnRecordBeforeAuthRefreshRequest": 1,
+				"OnRecordAuthRequest":              1,
+				"OnRecordAfterAuthRefreshRequest":  1,
+			},
+		},
+		{
 			Name:   "OnRecordAfterAuthRefreshRequest error response",
 			Method: http.MethodPost,
 			Url:    "/api/collections/users/auth-refresh?expand=rel,missing",
@@ -404,6 +489,8 @@ func TestRecordAuthRefresh(t *testing.T) {
 }
 
 func TestRecordAuthRequestPasswordReset(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:            "not an auth collection",
@@ -489,6 +576,8 @@ func TestRecordAuthRequestPasswordReset(t *testing.T) {
 }
 
 func TestRecordAuthConfirmPasswordReset(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:           "empty data",
@@ -602,6 +691,8 @@ func TestRecordAuthConfirmPasswordReset(t *testing.T) {
 }
 
 func TestRecordAuthRequestVerification(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:            "not an auth collection",
@@ -695,6 +786,8 @@ func TestRecordAuthRequestVerification(t *testing.T) {
 }
 
 func TestRecordAuthConfirmVerification(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:           "empty data",
@@ -823,6 +916,8 @@ func TestRecordAuthConfirmVerification(t *testing.T) {
 }
 
 func TestRecordAuthRequestEmailChange(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:            "unauthorized",
@@ -898,7 +993,7 @@ func TestRecordAuthRequestEmailChange(t *testing.T) {
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
 				`"data":`,
-				`"newEmail":{"code":"validation_record_email_exists"`,
+				`"newEmail":{"code":"validation_record_email_invalid"`,
 			},
 		},
 		{
@@ -925,6 +1020,8 @@ func TestRecordAuthRequestEmailChange(t *testing.T) {
 }
 
 func TestRecordAuthConfirmEmailChange(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:           "not an auth collection",
@@ -1045,6 +1142,8 @@ func TestRecordAuthConfirmEmailChange(t *testing.T) {
 }
 
 func TestRecordAuthListExternalsAuths(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:            "unauthorized",
@@ -1145,6 +1244,8 @@ func TestRecordAuthListExternalsAuths(t *testing.T) {
 }
 
 func TestRecordAuthUnlinkExternalsAuth(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:            "unauthorized",
@@ -1274,6 +1375,8 @@ func TestRecordAuthUnlinkExternalsAuth(t *testing.T) {
 }
 
 func TestRecordAuthOAuth2Redirect(t *testing.T) {
+	t.Parallel()
+
 	c1 := subscriptions.NewDefaultClient()
 
 	c2 := subscriptions.NewDefaultClient()

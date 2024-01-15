@@ -17,6 +17,8 @@ import (
 )
 
 func TestBackupsList(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "unauthorized",
@@ -84,6 +86,8 @@ func TestBackupsList(t *testing.T) {
 }
 
 func TestBackupsCreate(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "unauthorized",
@@ -116,7 +120,7 @@ func TestBackupsCreate(t *testing.T) {
 				"Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4NTI2MX0.M1m--VOqGyv0d23eeUc0r9xE8ZzHaYVmVFw1VZW6gT8",
 			},
 			BeforeTestFunc: func(t *testing.T, app *tests.TestApp, e *echo.Echo) {
-				app.Cache().Set(core.CacheKeyActiveBackup, "")
+				app.Store().Set(core.StoreKeyActiveBackup, "")
 			},
 			AfterTestFunc: func(t *testing.T, app *tests.TestApp, res *http.Response) {
 				ensureNoBackups(t, app)
@@ -198,6 +202,8 @@ func TestBackupsCreate(t *testing.T) {
 }
 
 func TestBackupsUpload(t *testing.T) {
+	t.Parallel()
+
 	// create dummy form data bodies
 	type body struct {
 		buffer      io.Reader
@@ -330,6 +336,8 @@ func TestBackupsUpload(t *testing.T) {
 }
 
 func TestBackupsDownload(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "unauthorized",
@@ -485,6 +493,8 @@ func TestBackupsDownload(t *testing.T) {
 }
 
 func TestBackupsDelete(t *testing.T) {
+	t.Parallel()
+
 	noTestBackupFilesChanges := func(t *testing.T, app *tests.TestApp) {
 		files, err := getBackupFiles(app)
 		if err != nil {
@@ -562,7 +572,7 @@ func TestBackupsDelete(t *testing.T) {
 				}
 
 				// mock active backup with the same name to delete
-				app.Cache().Set(core.CacheKeyActiveBackup, "test1.zip")
+				app.Store().Set(core.StoreKeyActiveBackup, "test1.zip")
 			},
 			AfterTestFunc: func(t *testing.T, app *tests.TestApp, res *http.Response) {
 				noTestBackupFilesChanges(t, app)
@@ -583,7 +593,7 @@ func TestBackupsDelete(t *testing.T) {
 				}
 
 				// mock active backup with different name
-				app.Cache().Set(core.CacheKeyActiveBackup, "new.zip")
+				app.Store().Set(core.StoreKeyActiveBackup, "new.zip")
 			},
 			AfterTestFunc: func(t *testing.T, app *tests.TestApp, res *http.Response) {
 				files, err := getBackupFiles(app)
@@ -645,6 +655,8 @@ func TestBackupsDelete(t *testing.T) {
 }
 
 func TestBackupsRestore(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "unauthorized",
@@ -700,7 +712,7 @@ func TestBackupsRestore(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				app.Cache().Set(core.CacheKeyActiveBackup, "")
+				app.Store().Set(core.StoreKeyActiveBackup, "")
 			},
 			ExpectedStatus:  400,
 			ExpectedContent: []string{`"data":{}`},

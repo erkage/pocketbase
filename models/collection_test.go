@@ -11,6 +11,8 @@ import (
 )
 
 func TestCollectionTableName(t *testing.T) {
+	t.Parallel()
+
 	m := models.Collection{}
 	if m.TableName() != "_collections" {
 		t.Fatalf("Unexpected table name, got %q", m.TableName())
@@ -18,6 +20,8 @@ func TestCollectionTableName(t *testing.T) {
 }
 
 func TestCollectionBaseFilesPath(t *testing.T) {
+	t.Parallel()
+
 	m := models.Collection{}
 
 	m.RefreshId()
@@ -29,6 +33,8 @@ func TestCollectionBaseFilesPath(t *testing.T) {
 }
 
 func TestCollectionIsBase(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		collection models.Collection
 		expected   bool
@@ -48,6 +54,8 @@ func TestCollectionIsBase(t *testing.T) {
 }
 
 func TestCollectionIsAuth(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		collection models.Collection
 		expected   bool
@@ -67,6 +75,8 @@ func TestCollectionIsAuth(t *testing.T) {
 }
 
 func TestCollectionMarshalJSON(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		name       string
 		collection models.Collection
@@ -89,24 +99,28 @@ func TestCollectionMarshalJSON(t *testing.T) {
 		},
 		{
 			"auth type + non empty options",
-			models.Collection{BaseModel: models.BaseModel{Id: "test"}, Type: models.CollectionTypeAuth, Options: types.JsonMap{"test": 123, "allowOAuth2Auth": true, "minPasswordLength": 4}},
-			`{"id":"test","created":"","updated":"","name":"","type":"auth","system":false,"schema":[],"indexes":[],"listRule":null,"viewRule":null,"createRule":null,"updateRule":null,"deleteRule":null,"options":{"allowEmailAuth":false,"allowOAuth2Auth":true,"allowUsernameAuth":false,"exceptEmailDomains":null,"manageRule":null,"minPasswordLength":4,"onlyEmailDomains":null,"requireEmail":false}}`,
+			models.Collection{BaseModel: models.BaseModel{Id: "test"}, Type: models.CollectionTypeAuth, Options: types.JsonMap{"test": 123, "allowOAuth2Auth": true, "minPasswordLength": 4, "onlyVerified": true}},
+			`{"id":"test","created":"","updated":"","name":"","type":"auth","system":false,"schema":[],"indexes":[],"listRule":null,"viewRule":null,"createRule":null,"updateRule":null,"deleteRule":null,"options":{"allowEmailAuth":false,"allowOAuth2Auth":true,"allowUsernameAuth":false,"exceptEmailDomains":null,"manageRule":null,"minPasswordLength":4,"onlyEmailDomains":null,"onlyVerified":true,"requireEmail":false}}`,
 		},
 	}
 
 	for _, s := range scenarios {
-		result, err := s.collection.MarshalJSON()
-		if err != nil {
-			t.Errorf("[%s] Unexpected error %v", s.name, err)
-			continue
-		}
-		if string(result) != s.expected {
-			t.Errorf("[%s] Expected\n%v \ngot \n%v", s.name, s.expected, string(result))
-		}
+		t.Run(s.name, func(t *testing.T) {
+			result, err := s.collection.MarshalJSON()
+			if err != nil {
+				t.Fatalf("Unexpected error %v", err)
+			}
+
+			if string(result) != s.expected {
+				t.Fatalf("Expected\n%v\ngot\n%v", s.expected, string(result))
+			}
+		})
 	}
 }
 
 func TestCollectionBaseOptions(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		name       string
 		collection models.Collection
@@ -135,22 +149,26 @@ func TestCollectionBaseOptions(t *testing.T) {
 	}
 
 	for _, s := range scenarios {
-		result := s.collection.BaseOptions()
+		t.Run(s.name, func(t *testing.T) {
+			result := s.collection.BaseOptions()
 
-		encoded, err := json.Marshal(result)
-		if err != nil {
-			t.Fatal(err)
-		}
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if strEncoded := string(encoded); strEncoded != s.expected {
-			t.Errorf("[%s] Expected \n%v \ngot \n%v", s.name, s.expected, strEncoded)
-		}
+			if strEncoded := string(encoded); strEncoded != s.expected {
+				t.Fatalf("Expected \n%v \ngot \n%v", s.expected, strEncoded)
+			}
+		})
 	}
 }
 
 func TestCollectionAuthOptions(t *testing.T) {
+	t.Parallel()
+
 	options := types.JsonMap{"test": 123, "minPasswordLength": 4}
-	expectedSerialization := `{"manageRule":null,"allowOAuth2Auth":false,"allowUsernameAuth":false,"allowEmailAuth":false,"requireEmail":false,"exceptEmailDomains":null,"onlyEmailDomains":null,"minPasswordLength":4}`
+	expectedSerialization := `{"manageRule":null,"allowOAuth2Auth":false,"allowUsernameAuth":false,"allowEmailAuth":false,"requireEmail":false,"exceptEmailDomains":null,"onlyVerified":false,"onlyEmailDomains":null,"minPasswordLength":4}`
 
 	scenarios := []struct {
 		name       string
@@ -180,20 +198,24 @@ func TestCollectionAuthOptions(t *testing.T) {
 	}
 
 	for _, s := range scenarios {
-		result := s.collection.AuthOptions()
+		t.Run(s.name, func(t *testing.T) {
+			result := s.collection.AuthOptions()
 
-		encoded, err := json.Marshal(result)
-		if err != nil {
-			t.Fatal(err)
-		}
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if strEncoded := string(encoded); strEncoded != s.expected {
-			t.Errorf("[%s] Expected \n%v \ngot \n%v", s.name, s.expected, strEncoded)
-		}
+			if strEncoded := string(encoded); strEncoded != s.expected {
+				t.Fatalf("Expected \n%v \ngot \n%v", s.expected, strEncoded)
+			}
+		})
 	}
 }
 
 func TestCollectionViewOptions(t *testing.T) {
+	t.Parallel()
+
 	options := types.JsonMap{"query": "select id from demo1", "minPasswordLength": 4}
 	expectedSerialization := `{"query":"select id from demo1"}`
 
@@ -225,20 +247,24 @@ func TestCollectionViewOptions(t *testing.T) {
 	}
 
 	for _, s := range scenarios {
-		result := s.collection.ViewOptions()
+		t.Run(s.name, func(t *testing.T) {
+			result := s.collection.ViewOptions()
 
-		encoded, err := json.Marshal(result)
-		if err != nil {
-			t.Fatal(err)
-		}
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if strEncoded := string(encoded); strEncoded != s.expected {
-			t.Errorf("[%s] Expected \n%v \ngot \n%v", s.name, s.expected, strEncoded)
-		}
+			if strEncoded := string(encoded); strEncoded != s.expected {
+				t.Fatalf("Expected \n%v \ngot \n%v", s.expected, strEncoded)
+			}
+		})
 	}
 }
 
 func TestNormalizeOptions(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		name       string
 		collection models.Collection
@@ -257,28 +283,31 @@ func TestNormalizeOptions(t *testing.T) {
 		{
 			"auth type",
 			models.Collection{Type: models.CollectionTypeAuth, Options: types.JsonMap{"test": 123, "minPasswordLength": 4}},
-			`{"allowEmailAuth":false,"allowOAuth2Auth":false,"allowUsernameAuth":false,"exceptEmailDomains":null,"manageRule":null,"minPasswordLength":4,"onlyEmailDomains":null,"requireEmail":false}`,
+			`{"allowEmailAuth":false,"allowOAuth2Auth":false,"allowUsernameAuth":false,"exceptEmailDomains":null,"manageRule":null,"minPasswordLength":4,"onlyEmailDomains":null,"onlyVerified":false,"requireEmail":false}`,
 		},
 	}
 
 	for _, s := range scenarios {
-		if err := s.collection.NormalizeOptions(); err != nil {
-			t.Errorf("[%s] Unexpected error %v", s.name, err)
-			continue
-		}
+		t.Run(s.name, func(t *testing.T) {
+			if err := s.collection.NormalizeOptions(); err != nil {
+				t.Fatalf("Unexpected error %v", err)
+			}
 
-		encoded, err := json.Marshal(s.collection.Options)
-		if err != nil {
-			t.Fatal(err)
-		}
+			encoded, err := json.Marshal(s.collection.Options)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if strEncoded := string(encoded); strEncoded != s.expected {
-			t.Errorf("[%s] Expected \n%v \ngot \n%v", s.name, s.expected, strEncoded)
-		}
+			if strEncoded := string(encoded); strEncoded != s.expected {
+				t.Fatalf("Expected \n%v \ngot \n%v", s.expected, strEncoded)
+			}
+		})
 	}
 }
 
 func TestDecodeOptions(t *testing.T) {
+	t.Parallel()
+
 	m := models.Collection{
 		Options: types.JsonMap{"test": 123},
 	}
@@ -297,6 +326,8 @@ func TestDecodeOptions(t *testing.T) {
 }
 
 func TestSetOptions(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		name       string
 		collection models.Collection
@@ -325,28 +356,31 @@ func TestSetOptions(t *testing.T) {
 			"auth type",
 			models.Collection{Type: models.CollectionTypeAuth, Options: types.JsonMap{"test": 123}},
 			map[string]any{"test": 456, "minPasswordLength": 4},
-			`{"allowEmailAuth":false,"allowOAuth2Auth":false,"allowUsernameAuth":false,"exceptEmailDomains":null,"manageRule":null,"minPasswordLength":4,"onlyEmailDomains":null,"requireEmail":false}`,
+			`{"allowEmailAuth":false,"allowOAuth2Auth":false,"allowUsernameAuth":false,"exceptEmailDomains":null,"manageRule":null,"minPasswordLength":4,"onlyEmailDomains":null,"onlyVerified":false,"requireEmail":false}`,
 		},
 	}
 
 	for _, s := range scenarios {
-		if err := s.collection.SetOptions(s.options); err != nil {
-			t.Errorf("[%s] Unexpected error %v", s.name, err)
-			continue
-		}
+		t.Run(s.name, func(t *testing.T) {
+			if err := s.collection.SetOptions(s.options); err != nil {
+				t.Fatalf("Unexpected error %v", err)
+			}
 
-		encoded, err := json.Marshal(s.collection.Options)
-		if err != nil {
-			t.Fatal(err)
-		}
+			encoded, err := json.Marshal(s.collection.Options)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if strEncoded := string(encoded); strEncoded != s.expected {
-			t.Errorf("[%s] Expected \n%v \ngot \n%v", s.name, s.expected, strEncoded)
-		}
+			if strEncoded := string(encoded); strEncoded != s.expected {
+				t.Fatalf("Expected\n%v\ngot\n%v", s.expected, strEncoded)
+			}
+		})
 	}
 }
 
 func TestCollectionBaseOptionsValidate(t *testing.T) {
+	t.Parallel()
+
 	opt := models.CollectionBaseOptions{}
 	if err := opt.Validate(); err != nil {
 		t.Fatal(err)
@@ -354,6 +388,8 @@ func TestCollectionBaseOptionsValidate(t *testing.T) {
 }
 
 func TestCollectionAuthOptionsValidate(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		name           string
 		options        models.CollectionAuthOptions
@@ -418,29 +454,31 @@ func TestCollectionAuthOptionsValidate(t *testing.T) {
 	}
 
 	for _, s := range scenarios {
-		result := s.options.Validate()
+		t.Run(s.name, func(t *testing.T) {
+			result := s.options.Validate()
 
-		// parse errors
-		errs, ok := result.(validation.Errors)
-		if !ok && result != nil {
-			t.Errorf("[%s] Failed to parse errors %v", s.name, result)
-			continue
-		}
-
-		if len(errs) != len(s.expectedErrors) {
-			t.Errorf("[%s] Expected error keys %v, got errors \n%v", s.name, s.expectedErrors, result)
-			continue
-		}
-
-		for key := range errs {
-			if !list.ExistInSlice(key, s.expectedErrors) {
-				t.Errorf("[%s] Unexpected error key %q in \n%v", s.name, key, errs)
+			// parse errors
+			errs, ok := result.(validation.Errors)
+			if !ok && result != nil {
+				t.Fatalf("Failed to parse errors %v", result)
 			}
-		}
+
+			if len(errs) != len(s.expectedErrors) {
+				t.Fatalf("Expected error keys %v, got errors \n%v", s.expectedErrors, result)
+			}
+
+			for key := range errs {
+				if !list.ExistInSlice(key, s.expectedErrors) {
+					t.Fatalf("Unexpected error key %q in \n%v", key, errs)
+				}
+			}
+		})
 	}
 }
 
 func TestCollectionViewOptionsValidate(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		name           string
 		options        models.CollectionViewOptions
@@ -461,24 +499,24 @@ func TestCollectionViewOptionsValidate(t *testing.T) {
 	}
 
 	for _, s := range scenarios {
-		result := s.options.Validate()
+		t.Run(s.name, func(t *testing.T) {
+			result := s.options.Validate()
 
-		// parse errors
-		errs, ok := result.(validation.Errors)
-		if !ok && result != nil {
-			t.Errorf("[%s] Failed to parse errors %v", s.name, result)
-			continue
-		}
-
-		if len(errs) != len(s.expectedErrors) {
-			t.Errorf("[%s] Expected error keys %v, got errors \n%v", s.name, s.expectedErrors, result)
-			continue
-		}
-
-		for key := range errs {
-			if !list.ExistInSlice(key, s.expectedErrors) {
-				t.Errorf("[%s] Unexpected error key %q in \n%v", s.name, key, errs)
+			// parse errors
+			errs, ok := result.(validation.Errors)
+			if !ok && result != nil {
+				t.Fatalf("Failed to parse errors %v", result)
 			}
-		}
+
+			if len(errs) != len(s.expectedErrors) {
+				t.Fatalf("Expected error keys %v, got errors \n%v", s.expectedErrors, result)
+			}
+
+			for key := range errs {
+				if !list.ExistInSlice(key, s.expectedErrors) {
+					t.Fatalf("Unexpected error key %q in \n%v", key, errs)
+				}
+			}
+		})
 	}
 }

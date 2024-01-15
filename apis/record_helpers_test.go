@@ -14,6 +14,8 @@ import (
 )
 
 func TestRequestInfo(t *testing.T) {
+	t.Parallel()
+
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/?test=123", strings.NewReader(`{"test":456}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -67,6 +69,8 @@ func TestRequestInfo(t *testing.T) {
 }
 
 func TestRecordAuthResponse(t *testing.T) {
+	t.Parallel()
+
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
@@ -83,6 +87,11 @@ func TestRecordAuthResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	unverfiedAuthRecord, err := app.Dao().FindRecordById("clients", "o1y0dd0spd786md")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	scenarios := []struct {
 		name               string
 		record             *models.Record
@@ -95,6 +104,11 @@ func TestRecordAuthResponse(t *testing.T) {
 		{
 			name:        "non auth record",
 			record:      nonAuthRecord,
+			expectError: true,
+		},
+		{
+			name:        "valid auth record but with unverified email in onlyVerified collection",
+			record:      unverfiedAuthRecord,
 			expectError: true,
 		},
 		{
@@ -179,6 +193,8 @@ func TestRecordAuthResponse(t *testing.T) {
 }
 
 func TestEnrichRecords(t *testing.T) {
+	t.Parallel()
+
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/?expand=rel_many", nil)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

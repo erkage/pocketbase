@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/spf13/cast"
 	"golang.org/x/oauth2"
 )
@@ -35,10 +36,12 @@ type Apple struct {
 func NewAppleProvider() *Apple {
 	return &Apple{
 		baseProvider: &baseProvider{
-			scopes:   nil, // custom scopes are currently not supported since they require a POST redirect
-			ctx:      context.Background(),
-			authUrl:  "https://appleid.apple.com/auth/authorize",
-			tokenUrl: "https://appleid.apple.com/auth/token",
+			ctx:         context.Background(),
+			displayName: "Apple",
+			pkce:        true,
+			scopes:      nil, // custom scopes are currently not supported since they require a POST redirect
+			authUrl:     "https://appleid.apple.com/auth/authorize",
+			tokenUrl:    "https://appleid.apple.com/auth/token",
 		},
 		jwksUrl: "https://appleid.apple.com/auth/keys",
 	}
@@ -73,6 +76,8 @@ func (p *Apple) FetchAuthUser(token *oauth2.Token) (*AuthUser, error) {
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 	}
+
+	user.Expiry, _ = types.ParseDateTime(token.Expiry)
 
 	if cast.ToBool(extracted.EmailVerified) {
 		user.Email = extracted.Email

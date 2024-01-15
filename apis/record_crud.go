@@ -2,9 +2,8 @@ package apis
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/dbx"
@@ -15,8 +14,6 @@ import (
 	"github.com/pocketbase/pocketbase/resolvers"
 	"github.com/pocketbase/pocketbase/tools/search"
 )
-
-const expandQueryParam = "expand"
 
 // bindRecordCrudApi registers the record crud api endpoints and
 // the corresponding handlers.
@@ -45,12 +42,12 @@ func (api *recordApi) list(c echo.Context) error {
 		return NewNotFoundError("", "Missing collection context.")
 	}
 
+	requestInfo := RequestInfo(c)
+
 	// forbid users and guests to query special filter/sort fields
-	if err := api.checkForForbiddenQueryFields(c); err != nil {
+	if err := checkForAdminOnlyRuleFields(requestInfo); err != nil {
 		return err
 	}
-
-	requestInfo := RequestInfo(c)
 
 	if requestInfo.Admin == nil && collection.ListRule == nil {
 		// only admins can access if the rule is nil
@@ -76,7 +73,7 @@ func (api *recordApi) list(c echo.Context) error {
 
 	result, err := searchProvider.ParseAndExec(c.QueryParams().Encode(), &records)
 	if err != nil {
-		return NewBadRequestError("Invalid filter parameters.", err)
+		return NewBadRequestError("", err)
 	}
 
 	event := new(core.RecordsListEvent)
@@ -90,8 +87,8 @@ func (api *recordApi) list(c echo.Context) error {
 			return nil
 		}
 
-		if err := EnrichRecords(e.HttpContext, api.app.Dao(), e.Records); err != nil && api.app.IsDebug() {
-			log.Println(err)
+		if err := EnrichRecords(e.HttpContext, api.app.Dao(), e.Records); err != nil {
+			api.app.Logger().Debug("Failed to enrich list records", slog.String("error", err.Error()))
 		}
 
 		return e.HttpContext.JSON(http.StatusOK, e.Result)
@@ -144,8 +141,13 @@ func (api *recordApi) view(c echo.Context) error {
 			return nil
 		}
 
-		if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil && api.app.IsDebug() {
-			log.Println(err)
+		if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil {
+			api.app.Logger().Debug(
+				"Failed to enrich view record",
+				slog.String("id", e.Record.Id),
+				slog.String("collectionName", e.Record.Collection().Name),
+				slog.String("error", err.Error()),
+			)
 		}
 
 		return e.HttpContext.JSON(http.StatusOK, e.Record)
@@ -237,8 +239,13 @@ func (api *recordApi) create(c echo.Context) error {
 					return NewBadRequestError("Failed to create record.", err)
 				}
 
-				if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil && api.app.IsDebug() {
-					log.Println(err)
+				if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil {
+					api.app.Logger().Debug(
+						"Failed to enrich create record",
+						slog.String("id", e.Record.Id),
+						slog.String("collectionName", e.Record.Collection().Name),
+						slog.String("error", err.Error()),
+					)
 				}
 
 				return api.app.OnRecordAfterCreateRequest().Trigger(event, func(e *core.RecordCreateEvent) error {
@@ -324,8 +331,13 @@ func (api *recordApi) update(c echo.Context) error {
 					return NewBadRequestError("Failed to update record.", err)
 				}
 
-				if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil && api.app.IsDebug() {
-					log.Println(err)
+				if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil {
+					api.app.Logger().Debug(
+						"Failed to enrich update record",
+						slog.String("id", e.Record.Id),
+						slog.String("collectionName", e.Record.Collection().Name),
+						slog.String("error", err.Error()),
+					)
 				}
 
 				return api.app.OnRecordAfterUpdateRequest().Trigger(event, func(e *core.RecordUpdateEvent) error {
@@ -395,22 +407,4 @@ func (api *recordApi) delete(c echo.Context) error {
 			return e.HttpContext.NoContent(http.StatusNoContent)
 		})
 	})
-}
-
-func (api *recordApi) checkForForbiddenQueryFields(c echo.Context) error {
-	admin, _ := c.Get(ContextAdminKey).(*models.Admin)
-	if admin != nil {
-		return nil // admins are allowed to query everything
-	}
-
-	decodedQuery := c.QueryParam(search.FilterQueryParam) + c.QueryParam(search.SortQueryParam)
-	forbiddenFields := []string{"@collection.", "@request."}
-
-	for _, field := range forbiddenFields {
-		if strings.Contains(decodedQuery, field) {
-			return NewForbiddenError("Only admins can filter by @collection and @request query params", nil)
-		}
-	}
-
-	return nil
 }

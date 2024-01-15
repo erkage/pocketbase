@@ -3,11 +3,14 @@ package daos_test
 import (
 	"testing"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/tests"
 )
 
 func TestExternalAuthQuery(t *testing.T) {
+	t.Parallel()
+
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
@@ -20,6 +23,8 @@ func TestExternalAuthQuery(t *testing.T) {
 }
 
 func TestFindAllExternalAuthsByRecord(t *testing.T) {
+	t.Parallel()
+
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
@@ -56,25 +61,25 @@ func TestFindAllExternalAuthsByRecord(t *testing.T) {
 	}
 }
 
-func TestFindExternalAuthByProvider(t *testing.T) {
+func TestFindFirstExternalAuthByExpr(t *testing.T) {
+	t.Parallel()
+
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
 	scenarios := []struct {
-		provider   string
-		providerId string
+		expr       dbx.Expression
 		expectedId string
 	}{
-		{"", "", ""},
-		{"github", "", ""},
-		{"github", "id1", ""},
-		{"github", "id2", ""},
-		{"google", "test123", "clmflokuq1xl341"},
-		{"gitlab", "test123", "dlmflokuq1xl342"},
+		{dbx.HashExp{"provider": "github", "providerId": ""}, ""},
+		{dbx.HashExp{"provider": "github", "providerId": "id1"}, ""},
+		{dbx.HashExp{"provider": "github", "providerId": "id2"}, ""},
+		{dbx.HashExp{"provider": "google", "providerId": "test123"}, "clmflokuq1xl341"},
+		{dbx.HashExp{"provider": "gitlab", "providerId": "test123"}, "dlmflokuq1xl342"},
 	}
 
 	for i, s := range scenarios {
-		auth, err := app.Dao().FindExternalAuthByProvider(s.provider, s.providerId)
+		auth, err := app.Dao().FindFirstExternalAuthByExpr(s.expr)
 
 		hasErr := err != nil
 		expectErr := s.expectedId == ""
@@ -90,6 +95,8 @@ func TestFindExternalAuthByProvider(t *testing.T) {
 }
 
 func TestFindExternalAuthByRecordAndProvider(t *testing.T) {
+	t.Parallel()
+
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
@@ -126,6 +133,8 @@ func TestFindExternalAuthByRecordAndProvider(t *testing.T) {
 }
 
 func TestSaveExternalAuth(t *testing.T) {
+	t.Parallel()
+
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
@@ -147,7 +156,11 @@ func TestSaveExternalAuth(t *testing.T) {
 	}
 
 	// check if it was really saved
-	foundAuth, err := app.Dao().FindExternalAuthByProvider("test", "test_id")
+	foundAuth, err := app.Dao().FindFirstExternalAuthByExpr(dbx.HashExp{
+		"collectionId": "v851q4r790rhknl",
+		"provider":     "test",
+		"providerId":   "test_id",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,6 +171,8 @@ func TestSaveExternalAuth(t *testing.T) {
 }
 
 func TestDeleteExternalAuth(t *testing.T) {
+	t.Parallel()
+
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 

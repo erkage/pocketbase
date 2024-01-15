@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/pocketbase/pocketbase/tools/types"
 	"golang.org/x/oauth2"
 )
 
@@ -22,8 +23,10 @@ type Mailcow struct {
 // NewMailcowProvider creates a new mailcow provider instance with some defaults.
 func NewMailcowProvider() *Mailcow {
 	return &Mailcow{&baseProvider{
-		ctx:    context.Background(),
-		scopes: []string{"profile"},
+		ctx:         context.Background(),
+		displayName: "mailcow",
+		pkce:        true,
+		scopes:      []string{"profile"},
 	}}
 }
 
@@ -65,6 +68,8 @@ func (p *Mailcow) FetchAuthUser(token *oauth2.Token) (*AuthUser, error) {
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 	}
+
+	user.Expiry, _ = types.ParseDateTime(token.Expiry)
 
 	// mailcow usernames are usually just the email adresses, so we just take the part in front of the @
 	if strings.Contains(user.Username, "@") {

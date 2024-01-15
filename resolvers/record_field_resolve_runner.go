@@ -141,13 +141,21 @@ func (r *runner) processCollectionField() (*search.ResolverResult, error) {
 		return nil, fmt.Errorf("invalid @collection field path in %q", r.fieldName)
 	}
 
-	collection, err := r.resolver.loadCollection(r.activeProps[1])
+	// nameOrId or nameOrId:alias
+	collectionParts := strings.SplitN(r.activeProps[1], ":", 2)
+
+	collection, err := r.resolver.loadCollection(collectionParts[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to load collection %q from field path %q", r.activeProps[1], r.fieldName)
 	}
 
 	r.activeCollectionName = collection.Name
-	r.activeTableAlias = inflector.Columnify("__collection_" + r.activeCollectionName)
+
+	if len(collectionParts) == 2 && collectionParts[1] != "" {
+		r.activeTableAlias = inflector.Columnify("__collection_alias_" + collectionParts[1])
+	} else {
+		r.activeTableAlias = inflector.Columnify("__collection_" + r.activeCollectionName)
+	}
 
 	r.withMultiMatch = true
 
@@ -445,6 +453,17 @@ func (r *runner) processActiveProps() (*search.ResolverResult, error) {
 				result.MultiMatchSubQuery = r.multiMatch
 			}
 
+			// wrap in json_extract to ensure that top-level primitives
+			// stored as json work correctly when compared to their SQL equivalent
+			// (https://github.com/pocketbase/pocketbase/issues/4068)
+			if field.Type == schema.FieldTypeJson {
+				result.NoCoalesce = true
+				result.Identifier = jsonExtract(r.activeTableAlias+"."+cleanFieldName, "")
+				if r.withMultiMatch {
+					r.multiMatch.valueIdentifier = jsonExtract(r.multiMatchActiveTableAlias+"."+cleanFieldName, "")
+				}
+			}
+
 			return result, nil
 		}
 
@@ -459,7 +478,6 @@ func (r *runner) processActiveProps() (*search.ResolverResult, error) {
 		// check if it is a json field
 		if field.Type == schema.FieldTypeJson {
 			var jsonPath strings.Builder
-			jsonPath.WriteString("$")
 			for _, p := range r.activeProps[i+1:] {
 				if _, err := strconv.Atoi(p); err == nil {
 					jsonPath.WriteString("[")
@@ -470,23 +488,15 @@ func (r *runner) processActiveProps() (*search.ResolverResult, error) {
 					jsonPath.WriteString(inflector.Columnify(p))
 				}
 			}
+			jsonPathStr := jsonPath.String()
 
 			result := &search.ResolverResult{
-				Identifier: fmt.Sprintf(
-					"JSON_EXTRACT([[%s.%s]], '%s')",
-					r.activeTableAlias,
-					inflector.Columnify(prop),
-					jsonPath.String(),
-				),
+				NoCoalesce: true,
+				Identifier: jsonExtract(r.activeTableAlias+"."+inflector.Columnify(prop), jsonPathStr),
 			}
 
 			if r.withMultiMatch {
-				r.multiMatch.valueIdentifier = fmt.Sprintf(
-					"JSON_EXTRACT([[%s.%s]], '%s')",
-					r.multiMatchActiveTableAlias,
-					inflector.Columnify(prop),
-					jsonPath.String(),
-				)
+				r.multiMatch.valueIdentifier = jsonExtract(r.multiMatchActiveTableAlias+"."+inflector.Columnify(prop), jsonPathStr)
 				result.MultiMatchSubQuery = r.multiMatch
 			}
 
@@ -590,6 +600,18 @@ func jsonEach(tableColumnPair string) string {
 		// note: the case is used to normalize value access for single and multiple relations.
 		`json_each(CASE WHEN json_valid([[%s]]) THEN [[%s]] ELSE json_array([[%s]]) END)`,
 		tableColumnPair, tableColumnPair, tableColumnPair,
+	)
+}
+
+func jsonExtract(tableColumnPair string, path string) string {
+	return fmt.Sprintf(
+		// note: the extra object wrapping is needed to workaround the cases where a json_extract is used with non-json columns.
+		"(CASE WHEN json_valid([[%s]]) THEN JSON_EXTRACT([[%s]], '$%s') ELSE JSON_EXTRACT(json_object('pb', [[%s]]), '$.pb%s') END)",
+		tableColumnPair,
+		tableColumnPair,
+		path,
+		tableColumnPair,
+		path,
 	)
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/pocketbase/pocketbase/tools/types"
 	"golang.org/x/oauth2"
 )
 
@@ -20,11 +21,13 @@ type Patreon struct {
 // NewPatreonProvider creates new Patreon provider instance with some defaults.
 func NewPatreonProvider() *Patreon {
 	return &Patreon{&baseProvider{
-		ctx:        context.Background(),
-		scopes:     []string{"identity", "identity[email]"},
-		authUrl:    "https://www.patreon.com/oauth2/authorize",
-		tokenUrl:   "https://www.patreon.com/api/oauth2/token",
-		userApiUrl: "https://www.patreon.com/api/oauth2/v2/identity?fields%5Buser%5D=full_name,email,vanity,image_url,is_email_verified",
+		ctx:         context.Background(),
+		displayName: "Patreon",
+		pkce:        true,
+		scopes:      []string{"identity", "identity[email]"},
+		authUrl:     "https://www.patreon.com/oauth2/authorize",
+		tokenUrl:    "https://www.patreon.com/api/oauth2/token",
+		userApiUrl:  "https://www.patreon.com/api/oauth2/v2/identity?fields%5Buser%5D=full_name,email,vanity,image_url,is_email_verified",
 	}}
 }
 
@@ -69,6 +72,8 @@ func (p *Patreon) FetchAuthUser(token *oauth2.Token) (*AuthUser, error) {
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 	}
+
+	user.Expiry, _ = types.ParseDateTime(token.Expiry)
 
 	if extracted.Data.Attributes.IsEmailVerified {
 		user.Email = extracted.Data.Attributes.Email

@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -120,8 +120,12 @@ func cronBinds(app core.App, loader *goja.Runtime, executors *vmsPool) {
 				return err
 			})
 
-			if err != nil && app.IsDebug() {
-				fmt.Println("[cronAdd] failed to execute cron job " + jobId + ": " + err.Error())
+			if err != nil {
+				app.Logger().Debug(
+					"[cronAdd] failed to execute cron job",
+					slog.String("jobId", jobId),
+					slog.String("error", err.Error()),
+				)
 			}
 		})
 		if err != nil {
@@ -293,6 +297,10 @@ func baseBinds(vm *goja.Runtime) {
 		}
 
 		return string(bodyBytes), nil
+	})
+
+	vm.Set("sleep", func(milliseconds int64) {
+		time.Sleep(time.Duration(milliseconds) * time.Millisecond)
 	})
 
 	vm.Set("arrayOf", func(model any) any {
@@ -497,8 +505,12 @@ func securityBinds(vm *goja.Runtime) {
 	obj.Set("pseudorandomStringWithAlphabet", security.PseudorandomStringWithAlphabet)
 
 	// jwt
-	obj.Set("parseUnverifiedJWT", security.ParseUnverifiedJWT)
-	obj.Set("parseJWT", security.ParseJWT)
+	obj.Set("parseUnverifiedJWT", func(token string) (map[string]any, error) {
+		return security.ParseUnverifiedJWT(token)
+	})
+	obj.Set("parseJWT", func(token string, verificationKey string) (map[string]any, error) {
+		return security.ParseJWT(token, verificationKey)
+	})
 	obj.Set("createJWT", security.NewJWT)
 
 	// encryption
@@ -599,6 +611,7 @@ func apisBinds(vm *goja.Runtime) {
 	})
 
 	// middlewares
+	obj.Set("requireGuestOnly", apis.RequireGuestOnly)
 	obj.Set("requireRecordAuth", apis.RequireRecordAuth)
 	obj.Set("requireAdminAuth", apis.RequireAdminAuth)
 	obj.Set("requireAdminAuthOnlyIfAny", apis.RequireAdminAuthOnlyIfAny)

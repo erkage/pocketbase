@@ -45,17 +45,12 @@ func TestNew(t *testing.T) {
 	}
 
 	if app.EncryptionEnv() != "test_encryption_env" {
-		t.Fatalf("Expected app.DataDir() test_encryption_env, got %q", app.EncryptionEnv())
-	}
-
-	if app.IsDebug() != true {
-		t.Fatal("Expected app.IsDebug() true, got false")
+		t.Fatalf("Expected app.EncryptionEnv() test_encryption_env, got %q", app.EncryptionEnv())
 	}
 }
 
 func TestNewWithConfig(t *testing.T) {
 	app := NewWithConfig(Config{
-		DefaultDebug:         true,
 		DefaultDataDir:       "test_dir",
 		DefaultEncryptionEnv: "test_encryption_env",
 		HideStartBanner:      true,
@@ -82,11 +77,7 @@ func TestNewWithConfig(t *testing.T) {
 	}
 
 	if app.EncryptionEnv() != "test_encryption_env" {
-		t.Fatalf("Expected app.DataDir() %q, got %q", "test_encryption_env", app.EncryptionEnv())
-	}
-
-	if app.IsDebug() != true {
-		t.Fatal("Expected app.IsDebug() true, got false")
+		t.Fatalf("Expected app.EncryptionEnv() %q, got %q", "test_encryption_env", app.EncryptionEnv())
 	}
 }
 
@@ -109,7 +100,6 @@ func TestNewWithConfigAndFlags(t *testing.T) {
 	)
 
 	app := NewWithConfig(Config{
-		DefaultDebug:         true,
 		DefaultDataDir:       "test_dir",
 		DefaultEncryptionEnv: "test_encryption_env",
 		HideStartBanner:      true,
@@ -136,11 +126,7 @@ func TestNewWithConfigAndFlags(t *testing.T) {
 	}
 
 	if app.EncryptionEnv() != "test_encryption_env_flag" {
-		t.Fatalf("Expected app.DataDir() %q, got %q", "test_encryption_env_flag", app.EncryptionEnv())
-	}
-
-	if app.IsDebug() != false {
-		t.Fatal("Expected app.IsDebug() false, got true")
+		t.Fatalf("Expected app.EncryptionEnv() %q, got %q", "test_encryption_env_flag", app.EncryptionEnv())
 	}
 }
 

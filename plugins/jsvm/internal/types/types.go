@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
@@ -208,6 +210,20 @@ declare var $template: template.Registry
  * @group PocketBase
  */
 declare function readerToString(reader: any, maxBytes?: number): string;
+
+/**
+ * sleep pauses the current goroutine for at least the specified user duration (in ms).
+ * A zero or negative duration returns immediately.
+ *
+ * Example:
+ *
+ * ` + "```" + `js
+ * sleep(250) // sleeps for 250ms
+ * ` + "```" + `
+ *
+ * @group PocketBase
+ */
+declare function sleep(milliseconds: number): void;
 
 /**
  * arrayOf creates a placeholder array of the specified models.
@@ -429,7 +445,7 @@ declare class DateTime implements types.DateTime {
 interface ValidationError extends ozzo_validation.Error{} // merge
 /**
  * ValidationError defines a single formatted data validation error,
- * usually used as part of a error response.
+ * usually used as part of an error response.
  *
  * ` + "```" + `js
  * new ValidationError("invalid_title", "Title is not valid")
@@ -590,9 +606,6 @@ declare namespace $security {
   let randomStringWithAlphabet:       security.randomStringWithAlphabet
   let pseudorandomString:             security.pseudorandomString
   let pseudorandomStringWithAlphabet: security.pseudorandomStringWithAlphabet
-  let parseUnverifiedJWT:             security.parseUnverifiedJWT
-  let parseJWT:                       security.parseJWT
-  let createJWT:                      security.newJWT
   let encrypt:                        security.encrypt
   let decrypt:                        security.decrypt
   let hs256:                          security.hs256
@@ -601,6 +614,17 @@ declare namespace $security {
   let md5:                            security.md5
   let sha256:                         security.sha256
   let sha512:                         security.sha512
+  let createJWT:                      security.newJWT
+
+  /**
+   * {@inheritDoc security.parseUnverifiedJWT}
+   */
+  export function parseUnverifiedJWT(token: string): _TygojaDict
+
+  /**
+   * {@inheritDoc security.parseJWT}
+   */
+  export function parseJWT(token: string, verificationKey: string): _TygojaDict
 }
 
 // -------------------------------------------------------------------
@@ -945,6 +969,7 @@ declare namespace $apis {
    */
   export function staticDirectoryHandler(dir: string, indexFallback: boolean): echo.HandlerFunc
 
+  let requireGuestOnly:          apis.requireGuestOnly
   let requireRecordAuth:         apis.requireRecordAuth
   let requireAdminAuth:          apis.requireAdminAuth
   let requireAdminAuthOnlyIfAny: apis.requireAdminAuthOnlyIfAny
@@ -1085,6 +1110,10 @@ func main() {
 	result = strings.ReplaceAll(result, "pocketbase.PocketBase", "PocketBase")
 	result = strings.ReplaceAll(result, "ORIGINAL_CORE_APP", "core.App")
 	result = strings.ReplaceAll(result, "ORIGINAL_POCKETBASE", "pocketbase.PocketBase")
+
+	// prepend a timestamp with the generation time
+	// so that it can be compared without reading the entire file
+	result = fmt.Sprintf("// %d\n%s", time.Now().Unix(), result)
 
 	parentDir := filepath.Dir(filename)
 	typesFile := filepath.Join(parentDir, "generated", "types.d.ts")

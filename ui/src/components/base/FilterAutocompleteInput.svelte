@@ -52,6 +52,7 @@
         syntaxHighlighting,
         bracketMatching,
         StreamLanguage,
+        syntaxTree,
     } from "@codemirror/language";
     import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
     import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
@@ -348,6 +349,12 @@
             return null;
         }
 
+        // skip for comments
+        let nodeBefore = syntaxTree(context.state).resolveInner(context.pos, -1);
+        if (nodeBefore?.type?.name == "comment") {
+            return null;
+        }
+
         let options = [
             { label: "false" },
             { label: "true" },
@@ -396,6 +403,8 @@
                         regex: /true|false|null/,
                         token: "atom",
                     },
+                    // comments
+                    { regex: /\/\/.*/, token: "comment" },
                     // double quoted string
                     { regex: /"(?:[^\\]|\\.)*?(?:"|$)/, token: "string" },
                     // single quoted string
@@ -431,6 +440,9 @@
                     { regex: CommonHelper.escapeRegExp("@yearEnd"), token: "keyword" },
                     { regex: CommonHelper.escapeRegExp("@request.method"), token: "keyword" },
                 ],
+                meta: {
+                    lineComment: "//",
+                },
             })
         );
     }
@@ -482,7 +494,14 @@
                     readOnlyCompartment.of(EditorState.readOnly.of(disabled)),
                     langCompartment.of(ruleLang()),
                     EditorState.transactionFilter.of((tr) => {
-                        return singleLine && tr.newDoc.lines > 1 ? [] : tr;
+                        if (singleLine && tr.newDoc.lines > 1) {
+                            if (!tr.changes?.inserted?.filter((i) => !!i.text.find((t) => t))?.length) {
+                                return []; // only empty lines
+                            }
+                            // it is ok to mutate the current transaction as we don't change the doc length
+                            tr.newDoc.text = [tr.newDoc.text.join(" ")];
+                        }
+                        return tr;
                     }),
                     EditorView.updateListener.of((v) => {
                         if (!v.docChanged || disabled) {

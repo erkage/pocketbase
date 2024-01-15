@@ -10,6 +10,8 @@ import (
 )
 
 func TestUserOauth2LoginValidate(t *testing.T) {
+	t.Parallel()
+
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
@@ -23,13 +25,13 @@ func TestUserOauth2LoginValidate(t *testing.T) {
 			"empty payload",
 			"users",
 			"{}",
-			[]string{"provider", "code", "codeVerifier", "redirectUrl"},
+			[]string{"provider", "code", "redirectUrl"},
 		},
 		{
 			"empty data",
 			"users",
 			`{"provider":"","code":"","codeVerifier":"","redirectUrl":""}`,
-			[]string{"provider", "code", "codeVerifier", "redirectUrl"},
+			[]string{"provider", "code", "redirectUrl"},
 		},
 		{
 			"missing provider",

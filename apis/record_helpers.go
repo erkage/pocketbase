@@ -3,6 +3,7 @@ package apis
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -13,11 +14,15 @@ import (
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/resolvers"
 	"github.com/pocketbase/pocketbase/tokens"
+	"github.com/pocketbase/pocketbase/tools/inflector"
 	"github.com/pocketbase/pocketbase/tools/rest"
 	"github.com/pocketbase/pocketbase/tools/search"
 )
 
 const ContextRequestInfoKey = "requestInfo"
+
+const expandQueryParam = "expand"
+const fieldsQueryParam = "fields"
 
 // Deprecated: Use RequestInfo instead.
 func RequestData(c echo.Context) *models.RequestInfo {
@@ -49,7 +54,7 @@ func RequestInfo(c echo.Context) *models.RequestInfo {
 	// ("X-Token" is converted to "x_token")
 	for k, v := range c.Request().Header {
 		if len(v) > 0 {
-			result.Headers[strings.ToLower(strings.ReplaceAll(k, "-", "_"))] = v[0]
+			result.Headers[inflector.Snakecase(k)] = v[0]
 		}
 	}
 
@@ -72,6 +77,10 @@ func RecordAuthResponse(
 	meta any,
 	finalizers ...func(token string) error,
 ) error {
+	if !authRecord.Verified() && authRecord.Collection().AuthOptions().OnlyVerified {
+		return NewForbiddenError("Please verify your email first.", nil)
+	}
+
 	token, tokenErr := tokens.NewRecordAuthToken(app, authRecord)
 	if tokenErr != nil {
 		return NewBadRequestError("Failed to create auth token.", tokenErr)
@@ -104,8 +113,8 @@ func RecordAuthResponse(
 				expands,
 				expandFetch(app.Dao(), &requestInfo),
 			)
-			if len(failed) > 0 && app.IsDebug() {
-				log.Println("Failed to expand relations: ", failed)
+			if len(failed) > 0 {
+				app.Logger().Debug("[RecordAuthResponse] Failed to expand relations", slog.Any("errors", failed))
 			}
 		}
 
@@ -304,4 +313,32 @@ func hasAuthManageAccess(
 	_, findErr := dao.FindRecordById(record.Collection().Id, record.Id, ruleFunc)
 
 	return findErr == nil
+}
+
+var ruleQueryParams = []string{search.FilterQueryParam, search.SortQueryParam}
+var adminOnlyRuleFields = []string{"@collection.", "@request."}
+
+// @todo consider moving the rules check to the RecordFieldResolver.
+//
+// checkForAdminOnlyRuleFields loosely checks and returns an error if
+// the provided RequestInfo contains rule fields that only the admin can use.
+func checkForAdminOnlyRuleFields(requestInfo *models.RequestInfo) error {
+	if requestInfo.Admin != nil || len(requestInfo.Query) == 0 {
+		return nil // admin or nothing to check
+	}
+
+	for _, param := range ruleQueryParams {
+		v, _ := requestInfo.Query[param].(string)
+		if v == "" {
+			continue
+		}
+
+		for _, field := range adminOnlyRuleFields {
+			if strings.Contains(v, field) {
+				return NewForbiddenError("Only admins can filter by "+field, nil)
+			}
+		}
+	}
+
+	return nil
 }

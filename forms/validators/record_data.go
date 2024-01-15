@@ -301,8 +301,14 @@ func (validator *RecordDataValidator) checkJsonValue(field *schema.SchemaField, 
 	}
 
 	raw, _ := types.ParseJsonRaw(value)
-	rawStr := strings.TrimSpace(raw.String())
 
+	options, _ := field.Options.(*schema.JsonOptions)
+
+	if len(raw) > options.MaxSize {
+		return validation.NewError("validation_json_size_limit", fmt.Sprintf("The maximum allowed JSON size is %v bytes", options.MaxSize))
+	}
+
+	rawStr := strings.TrimSpace(raw.String())
 	if field.Required && list.ExistInSlice(rawStr, emptyJsonValues) {
 		return requiredErr
 	}
@@ -379,7 +385,7 @@ func (validator *RecordDataValidator) checkRelationValue(field *schema.SchemaFie
 		AndWhere(dbx.In("id", list.ToInterfaceSlice(ids)...)).
 		Row(&total)
 	if total != len(ids) {
-		return validation.NewError("validation_missing_rel_records", "Failed to fetch all relation records with the provided ids")
+		return validation.NewError("validation_missing_rel_records", "Failed to find all relation records with the provided ids")
 	}
 	// ---
 
