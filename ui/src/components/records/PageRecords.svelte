@@ -208,7 +208,7 @@
             on:submit={(e) => (filter = e.detail)}
         />
 
-        <div class="clearfix m-b-sm" />
+        <!-- <div class="clearfix m-b-sm" /> -->
 
         <RecordsList
             bind:this={recordsList}
