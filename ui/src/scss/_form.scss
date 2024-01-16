@@ -554,7 +554,8 @@ select {
             margin-right: -5px;
         }
         &:not(.prefix) ~ %input {
-            padding-right: 30px;
+            padding-right: 20px;
+            font-size: 13px;
         }
         &.prefix {
             right: auto;
